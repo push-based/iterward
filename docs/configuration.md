@@ -14,13 +14,14 @@ A configuration has these fields:
 - `verify`: each verify status, with its `phase`, its `pass` and `fail` exits, and whether a pass needs `checks`.
 - `invalidate`: the statuses that can re-open the frozen artifact, the status the run returns to, and the statuses that need a proof report to do so.
 - `revoke`: the status where a human can reject a recorded pass, and the status the run moves to.
-- `checks`: the check rows a verify phase runs, through `cmd` for an external command, run without a shell, and `fact` for a row decided from files. The harness lists the changed files with `git status`, so a loop with checks needs Git.
+- `checks`: the check rows a verify phase runs, through `cmd` for an external command, run without a shell, and `fact` for a row decided from files. The harness lists the changed files with `git status`, so a loop with checks needs Git. A renamed file also carries `from`, the path it had. A row made with `{ warn: true }` reports its status without failing the rows.
+- `preflight`: rows in the same form that `new` runs before it creates a run, with the run's inputs as `doc`. A failing row refuses the run; a failing warning row is printed under `warnings`. The harness lists the changed files with `git status`, so a loop with a preflight needs Git.
 - `route`, `routeTransitions`, and `byStatus`: the dispatch at the initial status, the routes that are transitions instead, and the dispatch at each other status.
 - `dispatches`: each route's agent, and a function that builds its message from the output of `show`.
 - `human`: the routes a human starts with `dispatch <ROUTE> --text`.
 - `results`: for each agent, the action each result status takes.
 - `stops`: the statuses where the run stops for the human.
-- `limits`: the refusals in a row (`redispatch`, default 2) and the unusable results (`unusable`, default 1) before the run parks, and the failed verifications since the approval (`failed`) before it parks.
+- `limits`: the refusals in a row (`redispatch`, default 2) and the unusable results (`unusable`, default 1) before the run parks, the failed verifications since the approval (`failed`) before it parks, and the minutes after which a stop marks a dispatch as `slow` (`dispatchMinutes`, optional).
 - `decisionsField`, `obligationsField`, and `resumeSuffix`: the artifact fields that hold the applied decisions and the obligations, and the text added to a dispatch that resumes after a supplement.
 
 ## Result actions
@@ -35,6 +36,7 @@ The following table lists the actions a result status can take in `results`, and
 | `{ dispatch, fixes, maxPerCycle, park }` | Dispatches another route with `fixes(result)`, and parks the run past `maxPerCycle`. | `reason` |
 | `{ relay }` | Prints `{"do":"relay"}` with the `relay` field for the human. | The `relay` field |
 | `{ transition }` | Moves the run to that status. | None |
+| `{ transition, checks: true }` | Runs the check rows of that verify status first. A failing row refuses the move, and the agent is dispatched again with the rows after `Fixes:`. | None |
 | `{ invalidate: true }` | Re-opens the frozen artifact. | `reason` |
 | `{ park: true }` | Moves the run to `blocked` with the blockers. | `blockers` |
 | `{ verify }` | Records a `pass` or `fail` verdict for the verify phase. | `report` |

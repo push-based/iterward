@@ -24,9 +24,9 @@
 
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
-import { runChecks, type RowsHarness } from './checks.mts';
+import { runChecks, treeHash, type RowsHarness } from './checks.mts';
 
 export const VERSION = '0.1.0';
 
@@ -54,10 +54,13 @@ export interface Run {
     checks?: any[];
     dispatches?: Dispatch[];
     streak?: { refusals: number; unusable: number };
-    stopMark?: { from: number; to: number };
+    /** The dispatch ids and the ledger sizes at the last two stops, so a stop repeats its own records. */
+    stopMark?: { from: number; to: number; ledgerFrom?: LedgerCounts; ledgerTo?: LedgerCounts };
     /** The artifact documents, attached on load and dropped on save. */
     docs?: Record<string, Doc>;
 }
+
+export interface LedgerCounts { decisions: number; redirects: number; invalidations: number; gates: Record<string, number> }
 
 export interface Dispatch {
     id: number; name: string; agent: string; base: string; message: string; result: string; pass: number;
@@ -102,7 +105,8 @@ export type Action =
     | { supplement: string }
     | { dispatch: string; fixes: (result: Doc) => string; maxPerCycle: number; park: (result: Doc) => string }
     | { relay: string }
-    | { transition: string }
+    /** With `checks`, the target verify state's check rows run first, and a failing row refuses the move. */
+    | { transition: string; checks?: boolean }
     | { invalidate: true }
     | { park: true }
     | { verify: 'pass' | 'fail'; maxRefusals?: number };
@@ -132,7 +136,10 @@ export interface LoopConfig {
     results?: Record<string, Record<string, Action>>;
     resumeSuffix?: string;
     stops?: string[];
-    limits?: { redispatch: number; unusable: number; failed?: { phase: string; at: string; max: number; note: (show: Show) => string } };
+    /** `dispatchMinutes` marks a dispatch that ran longer as `slow` in a stop's `since`. */
+    limits?: { redispatch: number; unusable: number; dispatchMinutes?: number; failed?: { phase: string; at: string; max: number; note: (show: Show) => string } };
+    /** Rows `new` runs before it creates a run; a failing row refuses the run unless the row is a warning. */
+    preflight?: (h: RowsHarness) => void;
 }
 
 /** Types a loop configuration; returns it unchanged. */
@@ -198,7 +205,7 @@ export function loop(cfg: LoopConfig) {
     const OBLIGATIONS = cfg.obligationsField ?? 'obligations';
     const freezeGate = Object.keys(cfg.gates).find((g) => cfg.gates[g].freezes);
     const frozen = freezeGate ? cfg.gates[freezeGate].freezes : undefined;
-    const limits = { redispatch: 2, unusable: 1, ...cfg.limits };
+    const limits: { redispatch: number; unusable: number; dispatchMinutes?: number; failed?: NonNullable<LoopConfig['limits']>['failed'] } = { redispatch: 2, unusable: 1, ...cfg.limits };
 
     const guardCtx = (run: Run, runPath?: string): GuardContext => ({ run, runPath, root: process.cwd(), docs: run.docs ?? {}, active: activeDecisionIds(run) });
     const frozenAfterApproval = (run: Run) => freezeGate != null && run.gates?.[freezeGate]?.decision === 'approved';
@@ -337,8 +344,11 @@ export function loop(cfg: LoopConfig) {
         return errs;
     }
 
-    /** Store questions as pending and assign their ids (D1, D2, …). The whole list is checked first. */
-    function askQuestions(run: Run, questions: any[]): any[] {
+    /**
+     * Store questions as pending and assign their ids (D1, D2, …). The whole list is checked first. `origin`
+     * names the dispatch that asked, so routing can send the answers back to the agent that asked.
+     */
+    function askQuestions(run: Run, questions: any[], origin?: { dispatch: number; agent: string }): any[] {
         if (run.status !== cfg.initial) throw new Error(`ask is only allowed at status ${cfg.initial}, not ${run.status}`);
         if (!Array.isArray(questions) || questions.length === 0) throw new Error('ask needs a non-empty questions[]');
         const active = activeDecisionIds(run);
@@ -359,7 +369,7 @@ export function loop(cfg: LoopConfig) {
         });
         const askedAt = now();
         let n = (run.questions ?? []).length;
-        const stored = checked.map((q) => ({ id: `D${++n}`, ...q, askedAt }));
+        const stored = checked.map((q) => ({ id: `D${++n}`, ...q, askedAt, ...(origin ? { origin } : {}) }));
         (run.questions ??= []).push(...stored);
         return stored;
     }
@@ -382,7 +392,8 @@ export function loop(cfg: LoopConfig) {
             chosenText = custom;
         }
         if (q.supersedes && !activeDecisionIds(run).has(q.supersedes)) throw new Error(`${id} supersedes ${q.supersedes}, which is no longer active`);
-        const decision = { id, ...(q.topic ? { topic: q.topic } : {}), question: q.question, options: q.options, recommendation: q.recommendation, answer, chosen: option ?? 'custom', chosenText, ...(q.supersedes ? { supersedes: q.supersedes } : {}), at: now() };
+        // `seq` places the answer among the stores, so routing can tell whether an artifact was stored since.
+        const decision = { id, ...(q.topic ? { topic: q.topic } : {}), question: q.question, options: q.options, recommendation: q.recommendation, answer, chosen: option ?? 'custom', chosenText, ...(q.supersedes ? { supersedes: q.supersedes } : {}), ...(q.origin ? { origin: q.origin } : {}), seq: run.seq ?? 0, at: now() };
         (run.decisions ??= []).push(decision);
         return decision;
     }
@@ -499,11 +510,16 @@ export function loop(cfg: LoopConfig) {
             const fresh = (run.checks ?? []).findLast((c) => c.phase === phase && c.attempt === attempt);
             if (!fresh) throw new Error(`a ${phase} pass needs \`checks\` for this ${phase} attempt (${attempt}); run it and cite its rows`);
             if (!fresh.pass) throw new Error(`a ${phase} pass needs every check row to pass; ${fresh.path} has ${fresh.failed} failed and ${fresh.blocked} blocked row(s)`);
+            // A record written before the tree hash existed carries none, and stays trusted.
+            if (fresh.tree && cfg.checks && fresh.tree !== treeHash(process.cwd(), cfg.checks.ignore)) throw new Error(`the working tree changed since ${fresh.path} ran; run checks again and cite the new record`);
         }
         if (verdict === 'pass') {
-            const list: any[] = (frozen && run.docs?.[frozen]?.[OBLIGATIONS]) ?? [];
-            const unmet = list.filter((o) => o?.phase === phase && obligations[o.id] !== o.tier);
+            const list: any[] = ((frozen && run.docs?.[frozen]?.[OBLIGATIONS]) ?? []).filter((o: any) => o?.phase === phase);
+            const unmet = list.filter((o) => obligations[o.id] !== o.tier);
             if (unmet.length) throw new Error(`a ${phase} pass needs proof of every ${phase} obligation in its evidence mode; unmet: ${unmet.map((o) => `${o.id} (${o.tier})`).join(', ')}`);
+            const report = list.length ? readFileSync(String(proof), 'utf8') : '';
+            const unnamed = list.filter((o) => !report.includes(o.id));
+            if (unnamed.length) throw new Error(`a ${phase} pass needs a report that judges every ${phase} obligation; ${proof} never names ${unnamed.map((o) => o.id).join(', ')}`);
         }
         appendAttempt(run, phase, { verdict, at: now(), proof: String(proof), ...(Object.keys(obligations).length ? { obligations } : {}) });
         const to = verdict === 'pass' ? spec.pass : spec.fail;
@@ -552,15 +568,18 @@ export function loop(cfg: LoopConfig) {
 
     /* -------------------------------------------------------------- checks */
 
-    /** Run the loop's check rows for the current attempt of the verify phase and record them. */
-    function checks(runPath: string, run: Run): any {
-        const spec = cfg.verify[run.status];
-        if (!spec?.checks || !cfg.checks) throw new Error(`checks run only at status ${Object.keys(cfg.verify).filter((s) => cfg.verify[s].checks).join(', ')}, not ${run.status}`);
+    /**
+     * Run the loop's check rows for the current attempt of a verify phase and record them. `at` is the verify
+     * status; a transition into it runs them before the move.
+     */
+    function checks(runPath: string, run: Run, at: string = run.status): any {
+        const spec = cfg.verify[at];
+        if (!spec?.checks || !cfg.checks) throw new Error(`checks run only at status ${Object.keys(cfg.verify).filter((s) => cfg.verify[s].checks).join(', ')}, not ${at}`);
         const attempt = attemptOf(run, spec.phase);
         const k = (run.checks ?? []).filter((x) => x.phase === spec.phase && x.attempt === attempt).length + 1;
         const stem = k === 1 ? `checks.${attempt}` : `checks.${attempt}-${k}`;
         const res = runChecks(runPath, { root: process.cwd(), stem, ignore: cfg.checks.ignore, rows: cfg.checks.rows, doc: frozen ? run.docs?.[frozen] : undefined });
-        (run.checks ??= []).push({ phase: spec.phase, attempt, path: `${stem}.json`, pass: res.pass, failed: res.failed, blocked: res.blocked, at: now() });
+        (run.checks ??= []).push({ phase: spec.phase, attempt, path: `${stem}.json`, pass: res.pass, failed: res.failed, blocked: res.blocked, tree: res.tree, at: now() });
         return { attempt, ...res };
     }
 
@@ -624,8 +643,10 @@ export function loop(cfg: LoopConfig) {
      */
     function pick(runPath: string, run: Run, { file, pointer = '', fields, keys }: { file: string; pointer?: string; fields?: string; keys?: boolean }) {
         const names = [...Object.keys(cfg.artifacts), ...(cfg.draft ? ['draft'] : [])];
-        if (!names.includes(file)) throw new Error(`--file is ${names.join(', ')}, not ${file}`);
-        const path = file === 'draft' ? draftPath(runPath) : run.artifacts[file] && join(dirname(runPath), run.artifacts[file].path);
+        const out = join(dirname(runPath), 'out');
+        const spilled = !names.includes(file) && resolve(file).startsWith(`${resolve(out)}/`);
+        if (!names.includes(file) && !spilled) throw new Error(`--file is ${names.join(', ')}, or a file under ${out}, not ${file}`);
+        const path = spilled ? file : file === 'draft' ? draftPath(runPath) : run.artifacts[file] && join(dirname(runPath), run.artifacts[file].path);
         if (!path || !existsSync(path)) throw new Error(`the run has no ${file} file yet`);
         let value = resolvePointer(JSON.parse(readFileSync(path, 'utf8')), pointer);
         if (value === undefined) throw new Error(`${pointer} does not resolve in ${path}`);
@@ -670,14 +691,41 @@ export function loop(cfg: LoopConfig) {
         return dispatchOut(d);
     }
 
-    /** A stop, with the dispatch records since the previous stop. Repeating the same stop repeats its records. */
+    const ledgerCounts = (run: Run): LedgerCounts => ({
+        decisions: (run.decisions ?? []).length,
+        redirects: (run.redirects ?? []).length,
+        invalidations: (run.invalidations ?? []).length,
+        gates: Object.fromEntries(Object.entries(run.gates ?? {}).map(([k, g]) => [k, (g?.history ?? []).length])),
+    });
+    const NO_LEDGER: LedgerCounts = { decisions: 0, redirects: 0, invalidations: 0, gates: {} };
+
+    /** The human's words the ledger recorded between two ledger sizes, as stored, in the order recorded. */
+    function recordedBetween(run: Run, a: LedgerCounts, b: LedgerCounts) {
+        return [
+            ...(run.decisions ?? []).slice(a.decisions, b.decisions).map((d) => ({ at: d.at, record: 'answer', id: d.id, answer: d.answer, chosen: d.chosen, chosenText: d.chosenText })),
+            ...(run.redirects ?? []).slice(a.redirects, b.redirects).map((r) => ({ at: r.at, record: 'redirect', note: r.note, retired: r.retired })),
+            ...(run.invalidations ?? []).slice(a.invalidations, b.invalidations).map((i) => ({ at: i.at, record: 'invalidate', reason: i.reason })),
+            ...Object.entries(b.gates).flatMap(([name, n]) => (run.gates[name]?.history ?? []).slice(a.gates[name] ?? 0, n)
+                .map((h: any) => ({ at: h.at, record: 'gate', gate: name, decision: h.decision, ...(h.note ? { note: h.note } : {}), ...(h.scope ? { scope: h.scope } : {}) }))),
+        ].sort((x, y) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0));
+    }
+
+    /**
+     * A stop, with the dispatch records since the previous stop and, under `recorded`, the human's words the
+     * ledger stored since then, so the human sees what the run recorded. Repeating the same stop repeats both.
+     */
     function stop(run: Run, body: Record<string, unknown>) {
         const n = (run.dispatches ?? []).length;
         const m = run.stopMark ?? { from: 0, to: 0 };
-        if (m.to !== n) run.stopMark = { from: m.to, to: n };
-        const { from, to } = run.stopMark ?? m;
-        const since = (run.dispatches ?? []).slice(from, to).map((d) => ({ id: d.id, agent: d.agent, outcome: d.outcome, ...(d.note ? { note: d.note } : {}), ...(d.report ? { report: d.report } : {}), ...(d.gaps?.length ? { gaps: d.gaps } : {}) }));
-        return { do: 'stop', ...body, since };
+        if (m.to !== n || !m.ledgerTo) run.stopMark = m.to !== n ? { from: m.to, to: n, ledgerFrom: m.ledgerTo ?? NO_LEDGER, ledgerTo: ledgerCounts(run) } : { ...m, ledgerFrom: NO_LEDGER, ledgerTo: ledgerCounts(run) };
+        const { from, to, ledgerFrom = NO_LEDGER, ledgerTo = NO_LEDGER } = run.stopMark ?? m;
+        const since = (run.dispatches ?? []).slice(from, to).map((d) => {
+            const minutes = d.closedAt ? Math.round((Date.parse(d.closedAt) - Date.parse(d.openedAt)) / 6000) / 10 : undefined;
+            const slow = minutes != null && limits.dispatchMinutes != null && minutes > limits.dispatchMinutes;
+            return { id: d.id, agent: d.agent, outcome: d.outcome, ...(minutes != null ? { minutes } : {}), ...(slow ? { slow: true } : {}), ...(d.note ? { note: d.note } : {}), ...(d.report ? { report: d.report } : {}), ...(d.gaps?.length ? { gaps: d.gaps } : {}) };
+        });
+        const recorded = recordedBetween(run, ledgerFrom, ledgerTo);
+        return { do: 'stop', ...body, since, ...(recorded.length ? { recorded } : {}) };
     }
 
     function park(run: Run, note: string, proof?: string) {
@@ -811,7 +859,7 @@ export function loop(cfg: LoopConfig) {
         }
         if ('ask' in a) {
             const doc = JSON.parse(readFileSync(String(r[a.ask]), 'utf8'));
-            askQuestions(run, Array.isArray(doc) ? doc : doc.questions);
+            askQuestions(run, Array.isArray(doc) ? doc : doc.questions, { dispatch: d.id, agent: d.agent });
             close(run, d, r.status, r);
             return next(runPath, run);
         }
@@ -838,7 +886,13 @@ export function loop(cfg: LoopConfig) {
             close(run, d, r.status, r);
             return { do: 'relay', answer: r[a.relay] };
         }
-        if ('transition' in a) transition(run, a.transition);
+        if ('transition' in a) {
+            if (a.checks) {
+                const res = checks(runPath, run, a.transition);
+                if (!res.pass) throw new Error(`${a.transition} checks fail (${res.failed} failed, ${res.blocked} blocked); fix these rows and return ${r.status} again: ${res.rows.filter((x: any) => x.status !== 'pass').map((x: any) => `${x.name} ${x.status} (${x.log})`).join('; ')}`);
+            }
+            transition(run, a.transition);
+        }
         else if ('invalidate' in a) invalidate(run, { reason: r.reason, refs: Array.isArray(r.refs) ? r.refs.map(String) : [], proof: proofOnDisk(r.report) });
         else if ('park' in a) park(run, r.blockers.map((b: any) => `${b?.topic}: ${b?.reason}`).join('; '), r.report);
         else if ('verify' in a) {

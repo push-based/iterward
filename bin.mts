@@ -5,7 +5,7 @@
  * and `result` reads the file the agent wrote.
  *
  * Subcommands (a run names its loop configuration, so only `new` takes --config):
- *   new         --config <loop.mts> --run <run.json> [--<input> <value> …]      refuses a run file that exists
+ *   new         --config <loop.mts> --run <run.json> [--<input> <value> …]      runs the loop's preflight rows first
  *   next        --run <run.json>      the move the run needs: {do: dispatch|stop|relay, …}
  *   result      --run <run.json>      reads the open dispatch's result file and applies the loop's action
  *   dispatch    <route> --run <run.json> --text <the human's words>            a human-started route
@@ -24,13 +24,17 @@
  *   invalidate  --run <run.json> --reason <s> [--refs <a:1,b:2>] [--proof <report>]
  *   --version
  *
- * Run it from the repository root. Exit 0 ok, 2 refused (message on stderr), 1 usage error.
+ * Run it from the repository root. Exit 0 ok, 2 refused (message on stderr), 1 usage error. An output over
+ * 20,000 characters goes whole to <run folder>/out/<command>.<N>.json, and the printed view replaces each
+ * large value with {spilled: <pointer>}, which `show --file <that file> --pointer <pointer>` reads.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { runChecks } from './checks.mts';
 import { loop, pendingQuestions, activeDecisionIds, questionView, proofOnDisk, sha256, VERSION, type LoopConfig } from './engine.mts';
 
 /** Flags that take no value. */
@@ -65,12 +69,33 @@ async function importConfig(path: string): Promise<LoopConfig> {
     return (await import(pathToFileURL(resolve(path)).href)).default;
 }
 
-/** The run and its loop; the loop's configuration file must be the one the run started with. */
+/** The configuration file and every local file it imports, transitively: the files a run's rules come from. */
+function configFiles(entry: string): string[] {
+    const seen = new Set<string>();
+    const visit = (file: string) => {
+        if (seen.has(file)) return;
+        seen.add(file);
+        // Static import and export statements only: an `import` inside a string, such as a stylesheet line, isn't one.
+        for (const m of readFileSync(file, 'utf8').matchAll(/^\s*(?:import|export)\b[^;'"]*?(?:from\s*)?['"](\.{1,2}\/[^'"]+)['"]/gm)) {
+            const dep = resolve(dirname(file), m[1]);
+            if (existsSync(dep)) visit(dep);
+        }
+    };
+    visit(resolve(entry));
+    return [...seen].sort();
+}
+
+/** One hash over the configuration and its imports, with paths relative to the configuration's folder. */
+function configHash(entry: string): string {
+    const base = dirname(resolve(entry));
+    return sha256(configFiles(entry).map((f) => `${relative(base, f)}\0${readFileSync(f, 'utf8')}`).join('\0'));
+}
+
+/** The run and its loop; the configuration and the files it imports must be the ones the run started with. */
 async function open(a: Record<string, any>) {
     const raw = JSON.parse(readFileSync(a.run, 'utf8'));
     if (!raw.config?.path) throw new Error(`${a.run} names no loop configuration`);
-    const text = readFileSync(resolve(raw.config.path), 'utf8');
-    if (sha256(text) !== raw.config.sha256) throw new Error(`the loop's configuration changed since the run started (${raw.config.path}); start a new run`);
+    if (configHash(raw.config.path) !== raw.config.sha256) throw new Error(`the loop's configuration changed since the run started (${raw.config.path} or a file it imports); start a new run`);
     const L = loop(await importConfig(raw.config.path));
     return { L, r: L.loadRun(a.run) };
 }
@@ -86,12 +111,21 @@ async function change(a: Record<string, any>, fn: (L: ReturnType<typeof loop>, r
 const COMMANDS: Record<string, (a: Record<string, any>) => unknown> = {
     async new(a) {
         req(a, ['config', 'run']);
-        const text = readFileSync(resolve(a.config), 'utf8');
         const L = loop(await importConfig(a.config));
         req(a, L.cfg.inputs.required);
         if (existsSync(a.run)) throw new Error(`a run exists at ${a.run}; resume it, or move its folder away to start over`);
-        const r = L.saveRun(a.run, L.newRun(a, { path: a.config, sha256: sha256(text) }));
-        return { ok: true, status: r.status };
+        const dir = dirname(resolve(a.run));
+        if (existsSync(dir) && readdirSync(dir).some((f) => f !== '.DS_Store')) throw new Error(`${dirname(a.run)} holds files from an earlier run; move the folder away to start over`);
+        // The preflight logs go to a scratch folder: a refused run leaves nothing in the run's folder.
+        let warnings: any[] = [];
+        if (L.cfg.preflight) {
+            const res = runChecks(join(mkdtempSync(join(tmpdir(), 'looplock-preflight-')), 'run.json'), { root: process.cwd(), stem: 'preflight', ignore: [], rows: L.cfg.preflight, doc: a });
+            const failing = res.rows.filter((x) => x.status !== 'pass' && !x.warn);
+            if (failing.length) throw new Error(`preflight refuses the run: ${failing.map((x) => `${x.name} ${x.status} (${x.log})`).join('; ')}`);
+            warnings = res.warnings.map((x) => ({ row: x.name, status: x.status, log: x.log }));
+        }
+        const r = L.saveRun(a.run, L.newRun(a, { path: a.config, sha256: configHash(a.config) }));
+        return { ok: true, status: r.status, ...(warnings.length ? { warnings } : {}) };
     },
     async next(a) {
         req(a, ['run']);
@@ -207,6 +241,33 @@ const COMMANDS: Record<string, (a: Record<string, any>) => unknown> = {
 
 const USAGE = `Usage: looplock <${Object.keys(COMMANDS).join('|')}> [flags]`;
 
+/** Agent harnesses cut a tool result near 30,000 characters, and a cut JSON line reads as complete. */
+const SPILL_OVER = 20_000;
+const SPILL_KEEP = 2_000;
+
+/**
+ * An output over SPILL_OVER characters goes whole to <run folder>/out/<command>.<N>.json. The printed view
+ * keeps each value up to SPILL_KEEP characters, descends into larger objects, and replaces anything else
+ * with {spilled: <JSON pointer>, chars}.
+ */
+function spill(a: Record<string, any>, out: unknown): unknown {
+    const text = JSON.stringify(out);
+    if (text.length <= SPILL_OVER || !a.run) return out;
+    const dir = join(dirname(a.run), 'out');
+    mkdirSync(dir, { recursive: true });
+    let n = 1;
+    while (existsSync(join(dir, `${a._}.${n}.json`))) n++;
+    const file = join(dir, `${a._}.${n}.json`);
+    writeFileSync(file, text);
+    const view = (v: any, pointer: string): any => {
+        const t = JSON.stringify(v) ?? '';
+        if (t.length <= SPILL_KEEP) return v;
+        if (v && typeof v === 'object' && !Array.isArray(v)) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, view(x, `${pointer}/${k.replace(/~/g, '~0').replace(/\//g, '~1')}`)]));
+        return { spilled: pointer, chars: t.length, ...(Array.isArray(v) ? { length: v.length } : {}) };
+    };
+    return { ...view(out, ''), file };
+}
+
 export async function main(argv = process.argv.slice(2)) {
     if (argv[0] === '--version') {
         process.stdout.write(`${VERSION}\n`);
@@ -228,7 +289,7 @@ export async function main(argv = process.argv.slice(2)) {
     }
     try {
         // The process ends on its own after the write: an explicit exit would cut piped output at 64 KiB.
-        process.stdout.write(`${JSON.stringify(await cmd(a))}\n`);
+        process.stdout.write(`${JSON.stringify(spill(a, await cmd(a)))}\n`);
     } catch (e) {
         console.error((e as Error).message);
         process.exitCode = e instanceof Usage ? 1 : 2;

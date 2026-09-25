@@ -99,10 +99,10 @@ Run these steps from the repository root. If you followed the quick start in the
    {"do":"dispatch","id":4,"agent":"verifier","message":"Verify the build against runs/example/plan.1.json. Run: runs/example/run.json. Fixes: a build pass needs proof of every build obligation in its evidence mode; unmet: O1 (TEST) Result: runs/example/results/4.json."}
    ```
 
-8. Write a new report and a pass that proves `O1` in its tier, and record it:
+8. Write a new report that judges `O1`, and a pass that proves `O1` in its tier, and record it:
 
    ```bash
-   echo '# verify 2' > runs/example/verify.2.report.md
+   printf '# verify 2\n\n- O1: saving the form persists every field. Confirmed.\n' > runs/example/verify.2.report.md
    echo '{"status":"pass","report":"runs/example/verify.2.report.md","obligations":["O1:TEST"]}' > runs/example/results/4.json
    node bin.mts result --run runs/example/run.json
    ```

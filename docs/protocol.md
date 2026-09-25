@@ -24,7 +24,8 @@ The engine enforces the following rules:
 - Looplock stores each artifact beside the run file with its sha256, and refuses to load a file that changed. It never overwrites a versioned artifact.
 - After approval, the artifact a gate froze can't change until `invalidate` re-opens it.
 - The run keeps human decisions in an append-only ledger. A decision stays active until a later decision supersedes it.
-- A run records its configuration file's sha256, and the CLI refuses every command after that file changes.
+- A run records one sha256 over its configuration file and every local file that file imports, transitively, and the CLI refuses every command after any of them changes.
+- A question records the dispatch that asked it, as `origin`, and an answer records `seq`, its place among the stores, so a loop's routing can send the answers back to the agent that asked, until that agent stores again.
 
 ## Result handling
 
@@ -49,6 +50,8 @@ An obligation is a claim in the frozen artifact that a verifier must prove befor
 
 A pass must name each obligation of its phase as `<ID>:<TIER>`, with the tier the artifact gives it. When a verifier's result misses one, the CLI refuses the pass and re-dispatches the verifier with the unmet obligations after `Fixes:`. Steps 7 and 8 of [Run the default loop by hand](tutorial.md) show both results.
 
-A verify phase with `checks: true` also needs an all-pass checks record for the current attempt, which the `checks` command writes.
+The report must name each obligation's id: the CLI refuses a pass whose report never mentions one, because a verdict that doesn't judge an obligation doesn't prove it.
+
+A verify phase with `checks: true` also needs an all-pass checks record for the current attempt, which the `checks` command writes. The record carries a hash of the working tree: `HEAD`, the changed paths, and their contents. The CLI refuses a pass when the tree changed after the record, so a verdict never cites checks of another tree.
 
 A run leaves a verify status only through a verdict when that status's `states` entry lists no exit except `blocked`, as the default preset's does. A verify status that lists another exit lets `transition` skip the verification.

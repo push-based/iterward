@@ -6,11 +6,11 @@ The following table lists the commands:
 
 | Command | Other flags | Effect |
 | --- | --- | --- |
-| `new` | `--<INPUT> <VALUE>` for each loop input | Starts a run. It refuses a run file that exists. |
-| `next` | None | Prints the move the run needs: a dispatch, a stop, or a relay. |
+| `new` | `--<INPUT> <VALUE>` for each loop input | Runs the loop's `preflight` rows, then starts a run. It refuses a failing row, a run file that exists, and a run folder that holds other files, and prints each failing warning row under `warnings`. |
+| `next` | None | Prints the move the run needs: a dispatch, a stop, or a relay. A stop carries `since`, the dispatches since the previous stop, and `recorded`, the human's words the ledger stored since then. |
 | `result` | None | Reads the open dispatch's result file, and applies the loop's action. |
 | `dispatch <ROUTE>` | `--text` | Starts a human route, such as a clarification. |
-| `show` | `--file`, `--pointer`, `--fields`, `--keys` | Prints the run's summary, or one field of an artifact. |
+| `show` | `--file`, `--pointer`, `--fields`, `--keys` | Prints the run's summary, or one field of an artifact, the draft, or a file under `out/`. |
 | `summary` | `--gate` | Prints a gate's summary. |
 | `store <ARTIFACT>` | `--file`, `--dry-run` | Stores an artifact, or runs its checks with `--dry-run`. |
 | `ask` | `--questions` | Stores pending questions. |

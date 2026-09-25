@@ -7,7 +7,8 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
@@ -105,7 +106,11 @@ function drive(to: string, obligations: Doc[] = []) {
     if (to === 'build') return r;
     L.transition(r, 'verify-build');
     if (to === 'verify-build') return r;
-    verify(r, 'build', 'pass', 'proof:1', Object.fromEntries(obligations.filter((o) => o.phase === 'build').map((o) => [o.id, o.tier])));
+    const built = obligations.filter((o) => o.phase === 'build');
+    // A pass with obligations reads its report, which must name each of them.
+    const proof = built.length ? join(dirname(p), 'proof-1.md') : 'proof:1';
+    if (built.length) writeFileSync(proof, built.map((o) => `- ${o.id}: confirmed`).join('\n'));
+    verify(r, 'build', 'pass', proof, Object.fromEntries(built.map((o) => [o.id, o.tier])));
     if (to === 'integrate') return r;
     L.transition(r, 'verify-integration');
     if (to === 'verify-integration') return r;
@@ -238,17 +243,25 @@ test('invalidate: after the freeze only, needs a reason, and a verify origin nee
     assert.deepEqual([r.status, r.invalidations!.at(-1).proof, r.invalidations!.at(-1).from], ['plan', 'verify-build.1.report.md', 'verify-build']);
 });
 
-test('a pass is refused until every obligation of the phase is proven in exactly its evidence mode', () => {
+test('a pass is refused until every obligation of the phase is proven in exactly its evidence mode and named in the report', () => {
     const obligations = [
         { id: 'O1', phase: 'build', claim: 'the label resolves to 16px', tier: 'STATIC_EVIDENCE' },
         { id: 'O2', phase: 'integration', claim: 'the bar renders 8px tall in the tile', tier: 'LIVE_RENDER' },
     ];
     const atVerifyBuild = () => checked(drive('verify-build', obligations));
-    assert.throws(() => L.recordVerification(atVerifyBuild(), 'build', 'pass', 'r.md'), /unmet: O1 \(STATIC_EVIDENCE\)$/);
-    assert.throws(() => L.recordVerification(atVerifyBuild(), 'build', 'pass', 'r.md', { O1: 'LIVE_RENDER' }), /unmet: O1/, 'modes are not ranked');
-    assert.equal(L.recordVerification(atVerifyBuild(), 'build', 'pass', 'r.md', { O1: 'STATIC_EVIDENCE' }).status, 'integrate', 'O2 does not gate the build pass');
-    assert.throws(() => verify(drive('verify-integration', obligations), 'integration', 'pass', 'i.md', { O2: 'STATIC_EVIDENCE' }), /unmet: O2 \(LIVE_RENDER\)/);
-    assert.equal(verify(drive('verify-integration', obligations), 'integration', 'pass', 'i.md', { O2: 'LIVE_RENDER' }).status, 'gate2');
+    const d = dirname(tmp());
+    const report = (name: string, text: string) => {
+        writeFileSync(join(d, name), text);
+        return join(d, name);
+    };
+    const r = report('r.md', '# build\n- O1: the label resolves to 16px — confirmed.\n');
+    assert.throws(() => L.recordVerification(atVerifyBuild(), 'build', 'pass', r), /unmet: O1 \(STATIC_EVIDENCE\)$/);
+    assert.throws(() => L.recordVerification(atVerifyBuild(), 'build', 'pass', r, { O1: 'LIVE_RENDER' }), /unmet: O1/, 'modes are not ranked');
+    assert.throws(() => L.recordVerification(atVerifyBuild(), 'build', 'pass', report('silent.md', '# build\nAll good.\n'), { O1: 'STATIC_EVIDENCE' }), /never names O1$/, 'a report that never judges an obligation proves nothing');
+    assert.equal(L.recordVerification(atVerifyBuild(), 'build', 'pass', r, { O1: 'STATIC_EVIDENCE' }).status, 'integrate', 'O2 does not gate the build pass');
+    const i = report('i.md', '# integration\n- O2: renders 8px tall — confirmed.\n');
+    assert.throws(() => verify(drive('verify-integration', obligations), 'integration', 'pass', i, { O2: 'STATIC_EVIDENCE' }), /unmet: O2 \(LIVE_RENDER\)/);
+    assert.equal(verify(drive('verify-integration', obligations), 'integration', 'pass', i, { O2: 'LIVE_RENDER' }).status, 'gate2');
     assert.equal(verify(drive('verify-build', obligations), 'build', 'fail', 'f.md').status, 'build', 'a fail needs no obligation proof');
 });
 
@@ -504,6 +517,82 @@ test('THE DEFAULT PRESET: plan → gate → build → verify → done, and three
     const done = reply({ status: 'pass', report: report(4) });
     assert.deepEqual([done.stop, done.status], ['status', 'done']);
     assert.equal(P.saveRun(p, r).status, 'done');
+});
+
+test('ECHO: a stop shows the human words the ledger recorded since the previous stop, and repeats them with the stop', () => {
+    const { P, r, reply, file, next } = presetRun();
+    next();
+    reply({ status: 'needs-decisions', questions: file('q.json', [Q('scope?')]), gaps: [] });
+    P.answerQuestion(r, { id: 'D1', option: 'A', answer: 'A, keep both' });
+    next();
+    const projected = { decisionsApplied: [{ id: 'D1', pointers: ['/steps/0'] }] };
+    const gate = reply({ status: 'ok', plan: file('plan.json', { steps: ['a'], obligations: [], ...projected }) });
+    assert.deepEqual(gate.recorded.map((x: Doc) => [x.record, x.id, x.answer, x.chosenText]), [['answer', 'D1', 'A, keep both', 'A. keep both couplings']]);
+    assert.deepEqual(next().recorded, gate.recorded, 'the same stop repeats what it recorded');
+    P.reject(r, 'gate', 'split the plan');
+    next();
+    const again = reply({ status: 'ok', plan: file('plan2.json', { steps: ['a', 'b'], obligations: [], ...projected }) });
+    assert.deepEqual(again.recorded.map((x: Doc) => [x.record, x.decision, x.note]), [['gate', 'rejected', 'split the plan']], 'an earlier answer is not repeated');
+});
+
+test('ORIGIN: a question records the dispatch that asked it, and an answer records its place among the stores; a stop counts each dispatch\'s minutes', () => {
+    const { P, r, reply, file, next } = presetRun();
+    next();
+    const stop = reply({ status: 'needs-decisions', questions: file('q.json', [Q('scope?')]), gaps: [] });
+    assert.deepEqual(r.questions![0].origin, { dispatch: 1, agent: 'planner' });
+    assert.equal(typeof stop.since[0].minutes, 'number');
+    P.answerQuestion(r, { id: 'D1', option: 'A', answer: 'A' });
+    assert.deepEqual([r.decisions![0].origin, r.decisions![0].seq], [{ dispatch: 1, agent: 'planner' }, 0]);
+    r.dispatches![0].openedAt = '2026-01-01T00:00:00.000Z';
+    r.dispatches![0].closedAt = '2026-01-01T00:45:00.000Z';
+    const S = loop({ ...preset, limits: { redispatch: 2, unusable: 1, dispatchMinutes: 30 } });
+    r.stopMark = undefined;
+    r.status = 'blocked';
+    r.history.push({ from: 'plan', to: 'blocked', at: '2026-01-01T00:46:00.000Z', note: 'a test park' });
+    assert.deepEqual(S.next('x', r).since.map((x: Doc) => [x.minutes, x.slow]), [[45, true]]);
+});
+
+test('CHECKS GATE: a transition with checks runs the target rows first; a failing row re-dispatches with the rows, and a pass needs the same tree', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'looplock-repo-'));
+    spawnSync('git', ['init', '-q'], { cwd: repo });
+    const flag = join(repo, 'built.txt');
+    const G = loop({
+        ...preset,
+        verify: { verify: { ...preset.verify.verify, checks: true } },
+        checks: { ignore: ['state/'], rows: ({ fact }) => fact('built', 'test -e built.txt', existsSync(flag) ? 'pass' : 'fail', 'built.txt') },
+        results: { ...preset.results, builder: { ...preset.results!.builder, ok: { transition: 'verify', checks: true } } },
+    });
+    const p = join(repo, 'state', 'run.json');
+    const r = G.newRun({ subject: 'the offers tile' });
+    const reply = (doc: Doc) => {
+        writeFileSync(r.dispatches!.at(-1)!.result, JSON.stringify(doc));
+        return G.result(p, r);
+    };
+    const cwd = process.cwd();
+    process.chdir(repo);
+    try {
+        mkdirSync(dirname(p), { recursive: true });
+        G.next(p, r);
+        writeFileSync(join(repo, 'state', 'plan.json'), JSON.stringify({ steps: ['a'], obligations: [] }));
+        reply({ status: 'ok', plan: join(repo, 'state', 'plan.json') });
+        G.approve(r, 'gate');
+        G.next(p, r);
+        const fixes = reply({ status: 'ok' });
+        assert.equal(fixes.agent, 'builder');
+        assert.match(fixes.message, /Fixes: verify checks fail \(1 failed, 0 blocked\); fix these rows and return ok again: built fail \(.*checks\.1\/01-built\.log\)/);
+        assert.equal(r.status, 'build', 'a failing row keeps the run at build');
+        writeFileSync(flag, 'v1');
+        assert.equal(reply({ status: 'ok' }).agent, 'verifier');
+        assert.deepEqual(r.checks!.map((c) => [c.path, c.pass]), [['checks.1.json', false], ['checks.1-2.json', true]]);
+        const report = join(repo, 'state', 'verify.1.md');
+        writeFileSync(report, '# report');
+        writeFileSync(flag, 'v2');
+        assert.throws(() => G.recordVerification(r, 'build', 'pass', report), /working tree changed since checks\.1-2\.json ran/);
+        writeFileSync(flag, 'v1');
+        assert.deepEqual([reply({ status: 'pass', report }).status, r.status], ['done', 'done']);
+    } finally {
+        process.chdir(cwd);
+    }
 });
 
 /* ------------------------------------------------------------------ the consumer boundary */

@@ -32,7 +32,7 @@ resources:
 
 ## Steps
 
-Write each attempt's report to a new `<RUN_DIR>/verify.<N>.report.md`: the CLI refuses a report the run already cites.
+Write each attempt's report to a new `<RUN_DIR>/verify.<N>.report.md`: the CLI refuses a report the run already cites. Name each obligation's id in the report next to your judgment of it: the CLI refuses a pass whose report never names one.
 
 ### 1. <STEP>
 

@@ -14,4 +14,4 @@ runs/example/
 └── verify.2.report.md
 ```
 
-A loop with checks also writes `checks.<N>.json` and a log file for each check row.
+A loop with checks also writes `checks.<N>.json` and a log file for each check row. A command whose output passes 20,000 characters writes it whole to `out/<COMMAND>.<N>.json` and prints a view that names the file; read a left-out value with `show --file <FILE> --pointer <POINTER>`.
