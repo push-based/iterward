@@ -93,7 +93,7 @@ The engine checks the run file on every call. These rules hold for every loop:
 - Human decisions go into an append-only ledger, and the artifact a gate freezes must apply every active decision.
 - The CLI re-dispatches an unusable or refused result with the reason, and parks the run for a human past a limit.
 - Every verdict cites a proof report on disk, and a run cites each report once.
-- Looplock stores each artifact with its sha256 and refuses a file that changed. A run refuses every command after its loop configuration changes.
+- Looplock stores each artifact with its sha256 and refuses a file that changed. A run refuses every command after its loop configuration, or a local file the configuration imports, changes.
 
 For every rule and the terms it uses, see [Protocol rules](docs/protocol.md).
 
