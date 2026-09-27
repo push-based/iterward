@@ -1,0 +1,22 @@
+{
+  "name": "default",
+  "inputs": { "required": ["subject"] },
+  "questions": "Q-{n}.md",
+  "result": { "module": "./hooks.mts", "export": "readResult" },
+  "onAnswer": { "module": "./hooks.mts", "export": "onAnswer" },
+  "artifacts": {
+    "plan": { "file": "plan.md", "guard": { "module": "./hooks.mts", "export": "planGuard" } },
+    "build-report": { "file": "build.{attempt}.md" },
+    "verify-report": { "file": "verify.{attempt}.md" }
+  },
+  "stages": [
+    { "plan": "plan", "route": { "module": "./hooks.mts", "export": "route" }, "dispatches": {
+      "planner": { "agent": "planner", "artifact": "plan", "message": "Plan {subject}. Run: {runPath}. Note: '{note}'.",
+        "outcomes": { "ok": { "route": true }, "needs-decisions": { "ask": true }, "blocked": { "park": true } } } } },
+    { "gate": "gate", "label": "Gate", "freezes": ["plan"] },
+    { "work": "build", "dispatch": { "agent": "builder", "artifact": "build-report", "message": "Build the plan. Run: {runPath}. Report: {document}. Note: '{note}'." } },
+    { "verify": "verify", "dispatch": { "agent": "verifier", "artifact": "verify-report", "message": "Verify the build. Run: {runPath}. Report: {document}." }, "maxFailed": 3 },
+    { "end": "done" }
+  ],
+  "limits": { "redispatch": 2, "unusable": 1 }
+}

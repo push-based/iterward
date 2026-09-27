@@ -11,5 +11,6 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["**/*.mts"]
+  "include": ["**/*.mts"],
+  "exclude": ["dist/**"]
 }

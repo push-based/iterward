@@ -1,0 +1,63 @@
+/**
+ * node --test examples/default/default.spec.mts
+ *
+ * The default loop end to end, through the CLI: a question and its answer, a gate rejection whose note reaches
+ * the planner, an approval, a failed verification and its retry, and a pass into `done`.
+ */
+
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const BIN = fileURLToPath(new URL('../../bin.mts', import.meta.url));
+const LOOP = fileURLToPath(new URL('default.loop.json', import.meta.url));
+
+test('the default loop takes a run from plan to done', () => {
+    const run = join(mkdtempSync(join(tmpdir(), 'looplock-default-')), 'run.json');
+    const dir = dirname(run);
+    const cli = (...args: string[]) => {
+        const res = spawnSync(process.execPath, [BIN, ...args, '--run', run], { encoding: 'utf8' });
+        assert.equal(res.status, 0, res.stderr);
+        return JSON.parse(res.stdout);
+    };
+    const doc = (file: string, status: string) => writeFileSync(join(dir, file), `---\nid: ${file.replace(/\.md$/, '')}\nstatus: ${status}\n---\n`);
+
+    assert.deepEqual(cli('new', '--config', LOOP, '--subject', 'the settings page'), { ok: true, status: 'plan', warnings: [] });
+    assert.equal(cli('next').message, `Plan the settings page. Run: ${run}. Note: ''.`);
+
+    doc('plan.md', 'needs-decisions');
+    writeFileSync(join(dir, 'Q-1.md'), '---\nid: Q-1\nstatus: pending\n---\n\nWhich layout?\n\n- A. One page\n- B. Two pages\n');
+    const asked = cli('result');
+    assert.deepEqual([asked.stop, asked.questions], ['questions', [{ id: 'Q-1', file: join(dir, 'Q-1.md') }]]);
+    assert.deepEqual(asked.moves, ["`answer` Q-1 with an option key or `custom`, and the human's words: resolves Q-1 and freezes Q-1.md."]);
+    assert.deepEqual(cli('answer', '--id', 'Q-1', '--option', 'A', '--answer', 'One page.'), { ok: true, id: 'Q-1', chosen: 'A', pending: [] });
+    assert.match(readFileSync(join(dir, 'Q-1.md'), 'utf8'), /^---\nid: Q-1\nstatus: resolved\nchosen: A\nanswer: "One page."\n---\n\nWhich layout\?/);
+
+    assert.equal(cli('next').agent, 'planner');
+    doc('plan.md', 'ok');
+    const gate = cli('result');
+    assert.deepEqual([gate.stop, gate.freezes], ['gate', [join(dir, 'plan.md')]]);
+    assert.equal(gate.moves[0], '`gate` gate approved, with an optional note: freezes plan.md and moves to build.');
+
+    cli('gate', 'gate', '--decision', 'rejected', '--note', 'Add a cancel button.');
+    assert.equal(cli('next').message, `Plan the settings page. Run: ${run}. Note: 'Add a cancel button.'.`);
+    doc('plan.md', 'ok');
+    assert.equal(cli('result').stop, 'gate');
+    assert.equal(cli('gate', 'gate', '--decision', 'approved').status, 'build');
+
+    assert.equal(cli('next').message, `Build the plan. Run: ${run}. Report: ${join(dir, 'build.1.md')}. Note: ''.`);
+    doc('build.1.md', 'ok');
+    assert.equal(cli('result').agent, 'verifier');
+    doc('verify.1.md', 'fail');
+    assert.match(cli('result').message, /Report: .*build\.2\.md\./);
+    doc('build.2.md', 'ok');
+    assert.match(cli('result').message, /Report: .*verify\.2\.md\./);
+    doc('verify.2.md', 'pass');
+    const done = cli('result');
+    assert.deepEqual([done.stop, done.status, done.moves], ['status', 'done', []]);
+    assert.equal(cli('show').failed, 1);
+});
