@@ -1,25 +1,50 @@
 # CLI reference
 
-Run every command from the root of the repository the loop works on, because guards and checks resolve paths from there. Every command takes `--run <RUN>`, except `new`, which also takes `--config <LOOP>`. Each command prints one JSON line. It exits with `0` on success, `1` on a malformed call, and `2` on a refusal, with the reason on stderr.
+Run every command from the root of the repository the loop works on, because the hooks receive that directory as `root`. Each command prints one line of JSON on stdout, except `validate`, which prints text. A command exits with `0` on success, `1` on a usage error, and `2` on a refusal, with the reason on stderr. The CLI groups a refusal's lines by file and section. A refusal over 20,000 characters goes whole to the run folder's `out/`, and stderr keeps its first 40 lines and names the file.
 
-The following table lists the commands:
+The following table lists the 10 commands:
 
-| Command | Other flags | Effect |
+| Command | Flags | Output |
 | --- | --- | --- |
-| `new` | `--<INPUT> <VALUE>` for each loop input | Runs the loop's `preflight` rows, then starts a run. It refuses a failing row, a run file that exists, and a run folder that holds other files, and prints each failing warning row under `warnings`. |
-| `next` | None | Prints the move the run needs: a dispatch, a stop, or a relay. A stop carries `since`, the dispatches since the previous stop, and `recorded`, the human's words the ledger stored since then. |
-| `result` | None | Reads the open dispatch's result file, and applies the loop's action. |
-| `dispatch <ROUTE>` | `--text` | Starts a human route, such as a clarification. |
-| `show` | `--file`, `--pointer`, `--fields`, `--keys` | Prints the run's summary, or one field of an artifact, the draft, or a file under `out/`. |
-| `summary` | `--gate` | Prints a gate's summary. |
-| `store <ARTIFACT>` | `--file`, `--dry-run` | Stores an artifact, or runs its checks with `--dry-run`. |
-| `ask` | `--questions` | Stores pending questions. |
-| `answer` | `--id`, `--option` or `--custom`, `--answer` | Records a human decision. |
-| `decisions` | `--pending` or `--retired` | Lists the active decisions, or the pending or retired questions. |
-| `redirect` | `--note` | Retires the pending questions with the human's note. |
-| `gate <NAME>` | `--decision`, `--note`, `--scope`, `--supersedes` | Records a gate's approval or rejection. |
-| `checks` | None | Runs the check rows for the current verify attempt. |
-| `transition` | `--to`, `--note`, `--proof` | Moves the run along `states`. |
-| `verify` | `--phase`, `--verdict`, `--proof`, `--obligations` | Records a verdict. |
-| `revoke` | `--phase`, `--note`, `--proof` | Rejects a recorded pass. |
-| `invalidate` | `--reason`, `--refs`, `--proof` | Re-opens the frozen artifact. |
+| `new` | `--config <LOOP_FILE> --run <RUN> [--<INPUT> <VALUE> …]` | `{ ok, status, warnings }`. The loop's preflight runs first, and its errors refuse the run. `new` also refuses a run file that exists and a run folder that holds other files. |
+| `compile` | `--config <LOOP_FILE>` | `{ config, inferred }`: the compiled loop, each hook as its `{ module, export }`, and the JSON pointer of each value the compiler inferred. |
+| `next` | `--run <RUN>` | A dispatch, `{ do: "dispatch", id, agent, message }`, or a stop. A repeated call returns the open dispatch or the same stop. |
+| `result` | `--run <RUN>` | Reads the open dispatch's document, applies the action of its status, and prints the next move, as `next` prints it. |
+| `show` | `--run <RUN>` | The run's state: status, inputs, gate decisions, questions, freezes, warnings, the failed count, and the open dispatch. |
+| `validate` | `<ARTIFACT> --run <RUN>` | `ok`, or the guard's error lines, grouped, with exit `2`. A per-attempt artifact validates its highest-numbered file. |
+| `answer` | `--run <RUN> --id <ID> --option <KEY\|custom> --answer <WORDS>` | `{ ok, id, chosen, pending }`. Resolves the question and freezes its file. |
+| `gate` | `<NAME> --run <RUN> --decision approved\|rejected [--note <TEXT>]` | `{ ok, gate, decision, status, note }`. A rejection needs `--note`. |
+| `transition` | `--run <RUN> --to <STATE> --note <TEXT>` | `{ ok, status, blockedFrom }`. Moves the run along a human edge of its state. |
+| `--version` | None | The version. |
+
+## Stops
+
+A stop is one JSON object. Every stop carries `status`, `moves`, `since`, and `recorded`, and the fields of its kind:
+
+- **`questions`**: `questions`, the pending questions with their files.
+- **`gate`**: `gate`, `label`, `freezes`, the files an approval freezes, and `summary`, the lines of the gate's summary hook.
+- **`blocked`**: `blockedFrom` and `reason`, the park note.
+- **`status`**: nothing more. The run is at a stop or an end stage.
+
+`moves` lists the human's moves from the current state, as lines the orchestrator shows word for word. `warnings` lists the preflight warnings while the freezing gate isn't approved, and always in a loop with no freezing gate. `since` lists the dispatches between the last two distinct stops, with each one's outcome, minutes, and refusal note. `recorded` lists the human moves since the latest closed dispatch.
+
+The following stop is a blocked run of the default loop after the builder returned `blocked`:
+
+```json
+{"do":"stop","stop":"blocked","status":"blocked","blockedFrom":"build","reason":"builder returned blocked; the reason is in runs/example/build.1.md.",
+ "moves":["`transition` to build, with the human's note: resumes build, and the failed count resets.","`transition` to plan, with the human's note: moves to plan and drops the Gate freeze on plan.md."],
+ "since":[{"id":2,"name":"build","agent":"builder","attempt":1,"outcome":"blocked","minutes":0}],"recorded":[]}
+```
+
+## Compile
+
+`compile` is how you review what a loop's stages leave to the compiler. The following lines are an excerpt of its output for `examples/default/default.loop.json`, where each pointer in `inferred` names a value in `config`:
+
+```json
+{"config":{"human":{"build":[{"to":"plan","drops":"gate"}],"verify":[{"to":"plan","drops":"gate"},{"to":"build","retries":true,"resets":true}]},
+ "gates":{"gate":{"label":"Gate","next":"build","back":"plan","freezes":["plan"]}},
+ "limits":{"redispatch":2,"unusable":1,"failed":{"stage":"verify","at":"build","max":3}}},
+ "inferred":["/states/plan/0","/gates/gate/next","/gates/gate/back","/dispatches/build/outcomes/ok","/dispatches/build/outcomes/blocked","/dispatches/verify/outcomes/pass","/dispatches/verify/outcomes/fail","/dispatches/verify/outcomes/blocked","/limits/failed"]}
+```
+
+A loop file the engine can't run exits `2`, and the reason names the stage, the artifact, or the hook at fault.

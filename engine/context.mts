@@ -1,29 +1,21 @@
-import type { LoopConfig } from '../config.mts';
+import { dirname, join, resolve } from 'node:path';
+
+import type { HookContext, LoopConfig, Run } from '../config.mts';
 
 /** A loop configuration and the values every operation derives from it. */
 export interface Ctx {
     cfg: LoopConfig;
+    /** Every state a run can stand at, `blocked` included. */
     statuses: string[];
-    /** The states a blocked run can resume into. */
-    resumable: Set<string>;
-    decisionsField: string;
-    obligationsField: string;
-    /** The gate that freezes an artifact, and that artifact. */
-    freezeGate?: string;
-    frozen?: string;
-    limits: { redispatch: number; unusable: number; dispatchMinutes?: number; failed?: NonNullable<LoopConfig['limits']>['failed'] };
 }
 
-export function context(cfg: LoopConfig): Ctx {
-    const freezeGate = Object.keys(cfg.gates).find((g) => cfg.gates[g].freezes);
-    return {
-        cfg,
-        statuses: Object.keys(cfg.states),
-        resumable: new Set(cfg.states.blocked ?? []),
-        decisionsField: cfg.decisionsField ?? 'decisionsApplied',
-        obligationsField: cfg.obligationsField ?? 'obligations',
-        freezeGate,
-        frozen: freezeGate ? cfg.gates[freezeGate].freezes : undefined,
-        limits: { redispatch: 2, unusable: 1, ...cfg.limits },
-    };
-}
+export const context = (cfg: LoopConfig): Ctx => ({ cfg, statuses: Object.keys(cfg.states) });
+
+/** What every hook receives: the repository root is the working directory, and the run folder is absolute. */
+export const hookCtx = (runPath: string, run: Run): HookContext => ({ root: process.cwd(), runPath, runDir: resolve(dirname(runPath)), run });
+
+/** The absolute path of a file in the run folder. */
+export const inRunDir = (runPath: string, file: string): string => join(resolve(dirname(runPath)), file);
+
+/** The run-relative file of each artifact a gate freezes, in the gate's order. */
+export const frozenFiles = ({ cfg }: Ctx, gate: string): string[] => cfg.gates[gate].freezes.map((a) => cfg.artifacts[a].file);

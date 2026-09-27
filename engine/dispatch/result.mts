@@ -1,69 +1,74 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 
-import type { Action, Doc, Run } from '../../config.mts';
-import type { Ctx } from '../context.mts';
-import { hasText, isObj, sha256 } from '../util.mts';
-import { apply } from './internal/apply.mts';
+import type { Run } from '../../config.mts';
+import { type Ctx, hookCtx } from '../context.mts';
+import { pendingQuestions } from '../decisions/pending-questions.mts';
+import { scanQuestions } from '../decisions/scan-questions.mts';
+import { FreezeError } from '../run/freezes.mts';
+import { transition } from '../run/transition.mts';
 import { close } from './internal/close.mts';
 import { open } from './internal/open.mts';
-import { openDispatch } from './internal/open-dispatch.mts';
-import { park } from './internal/park.mts';
-import { streak } from './internal/streak.mts';
-import { next, refused } from './next.mts';
+import { info, openDispatch } from './internal/open-dispatch.mts';
+import { next, parked, refused } from './next.mts';
 
-/** The result field an action needs. */
-const needs = (a: Action): string | undefined => {
-    if ('store' in a) return a.from;
-    if ('ask' in a) return a.ask;
-    if ('supplement' in a) return 'requests';
-    if ('dispatch' in a) return 'reason';
-    if ('relay' in a) return a.relay;
-    if ('invalidate' in a) return 'reason';
-    if ('park' in a) return 'blockers';
-    if ('verify' in a) return 'report';
-    return undefined;
-};
-
-/** Read the open dispatch's result file and apply the loop's action for its agent and status. */
-export function result(ctx: Ctx, runPath: string, run: Run): any {
+/**
+ * Read the open dispatch's document and apply the action of its status. The document must be fresh: written
+ * during the dispatch. The loop's result hook reads its status, which must be an outcome of the dispatch; any
+ * other result is unusable and re-dispatched, and past `limits.unusable` in a row the run parks. Unless the
+ * action parks, the artifact's guard runs, and its errors re-dispatch. At the initial state new question files
+ * enter the ledger. Then the action: `transition`, `route`, `ask`, or `park`.
+ */
+export async function result(ctx: Ctx, runPath: string, run: Run): Promise<object> {
+    const { cfg } = ctx;
     const d = openDispatch(run);
     if (!d) throw new Error('no open dispatch: run next first');
-    const actions = ctx.cfg.results?.[d.agent] ?? {};
-    let r: Doc;
-    let text = '';
-    let err: string | undefined;
-    if (!existsSync(d.result)) err = `no result file at ${d.result}; write the result JSON there before you reply`;
+    const spec = cfg.dispatches[d.name];
+    const dispatch = info(d);
+    const ctxOf = () => ({ ...hookCtx(runPath, run), dispatch });
+    let error: string | undefined;
+    let status = '';
+    if (!existsSync(dispatch.document) || statSync(dispatch.document).mtimeMs < Date.parse(d.openedAt)) error = `${d.agent} wrote no ${d.document} during this dispatch`;
     else {
-        text = readFileSync(d.result, 'utf8');
+        const r = await cfg.result(dispatch.document, ctxOf());
+        if ('error' in r) error = r.error;
+        else if (!Object.hasOwn(spec.outcomes, r.status)) error = `${d.agent} returned ${r.status}, which is not an outcome of ${d.name}: ${Object.keys(spec.outcomes).join(', ')}`;
+        else status = r.status;
+    }
+    if (error !== undefined) {
+        close(d, 'unusable', error);
+        run.streak.unusable += 1;
+        if (run.streak.unusable > cfg.limits.unusable) {
+            const n = run.streak.unusable;
+            run.streak.unusable = 0;
+            return parked(ctx, runPath, run, `${d.agent} returned no usable result ${n} times in a row: ${error}`);
+        }
+        return open(ctx, runPath, run, d.name, { ...(d.with ? { with: d.with } : {}), fixes: [error] });
+    }
+    run.streak.unusable = 0;
+    const action = spec.outcomes[status];
+    const source = { name: d.name, ...(d.with ? { with: d.with } : {}) };
+    const refuse = (lines: string[]) => {
+        close(d, status, `refused: ${lines.join('\n')}`);
+        return refused(ctx, runPath, run, lines, source);
+    };
+    if (!('park' in action)) {
+        const guard = cfg.artifacts[spec.artifact].guard;
+        const errors = guard ? await guard(dispatch.document, { ...ctxOf(), event: 'result', status }) : [];
+        if (errors.length) return refuse(errors);
+    }
+    scanQuestions(ctx, runPath, run);
+    if ('transition' in action) {
         try {
-            r = JSON.parse(text);
+            await transition(ctx, runPath, run, action.transition, { via: 'action', dispatch });
         } catch (e) {
-            err = `the result file is not JSON: ${(e as Error).message}`;
+            if (!(e instanceof FreezeError)) return refuse((e as Error).message.split('\n'));
+            close(d, status);
+            return parked(ctx, runPath, run, e.message);
         }
-        if (!err && (!isObj(r) || !hasText(r.status) || !Object.hasOwn(actions, r.status))) err = `the result status must be one of ${Object.keys(actions).join(', ')}, not ${r?.status}`;
-        const field = err ? undefined : needs(actions[r.status]);
-        if (!err && field && (r[field] == null || r[field] === '' || (Array.isArray(r[field]) && !r[field].length))) err = `a ${r.status} result needs ${field}`;
     }
-    const st = streak(run);
-    if (err) {
-        close(ctx, run, d, 'unusable', undefined, err);
-        st.unusable += 1;
-        if (st.unusable > ctx.limits.unusable) {
-            st.unusable = 0;
-            park(ctx, run, `${d.agent} returned no usable result twice: ${err}`);
-            return next(ctx, runPath, run);
-        }
-        return open(ctx, runPath, run, d.name, { base: d.base, fixes: err, pass: d.pass, resume: d.resume });
-    }
-    st.unusable = 0;
-    d.sha256 = sha256(text);
-    const a = actions[r.status];
-    try {
-        const out = apply(ctx, runPath, run, d, a, r);
-        st.refusals = 0;
-        return out;
-    } catch (e) {
-        if (!d.closedAt) close(ctx, run, d, r.status, r, `refused: ${(e as Error).message}`);
-        return refused(ctx, runPath, run, (e as Error).message, { name: 'store' in a ? a.onRefusal : undefined, source: d, limit: 'verify' in a ? a.maxRefusals : undefined });
-    }
+    if ('ask' in action && !pendingQuestions(run).length) return refuse([`${d.agent} returned ${status} and no question file is pending`]);
+    run.streak.refusals = 0;
+    close(d, status);
+    if ('park' in action) return parked(ctx, runPath, run, `${d.agent} returned ${status}; the reason is in ${d.document}.`);
+    return next(ctx, runPath, run);
 }
