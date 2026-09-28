@@ -6,7 +6,7 @@ A loop's protocol is a loop file and hooks, so you test it with `node:test`, the
 
 `loop(await loadLoop(path))` returns the same `next` and `result` operations that the CLI calls. Your test plays each agent by writing its document, a Markdown file whose frontmatter carries the status, and never writes a result file of its own.
 
-The following test checks that a gate rejection in the default loop sends the human's note to the planner. It sits in the repository root. For your own loop, change the import path and the loop file:
+The following test checks that a gate rejection in the default loop sends the human's note to the planner. It sits in the `packages/looplock` folder. For your own loop, change the import path and the loop file:
 
 ```ts
 import assert from 'node:assert/strict';
@@ -42,10 +42,10 @@ A document must be written after its dispatch opens, because `result` refuses an
 
 ## Run the engine's tests
 
-Run the engine's tests from the repository root:
+Run the engine's tests from the `packages/looplock` folder:
 
 ```bash
 node --test '**/*.spec.mts'
 ```
 
-One test in `engine.spec.mts` keeps the repository domain independent. It scans every file of the repository, the specs and their fixtures included, for terms from the workflow Looplock came from, and fails on a match. Put a loop for a specific domain in its own directory, outside this repository.
+One test in `engine.spec.mts` keeps the package domain independent. It scans every file of the package, the specs and their fixtures included, for terms from the workflow Looplock came from, and fails on a match. Put a loop for a specific domain in its own directory, outside this repository.

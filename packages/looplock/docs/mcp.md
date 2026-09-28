@@ -7,7 +7,7 @@ The MCP server exposes the CLI's commands as Model Context Protocol (MCP) tools,
 The server runs each command in its working directory, so the client must start it in the root of the repository the loop works on. The server's path depends on the copy you run:
 
 - In a built copy, the server is `mcp/server.mjs`.
-- In the repository, the server is `mcp/server.mts`, which Node.js runs without a build step.
+- In a clone of the repository, the server is `packages/looplock/mcp/server.mts`, which Node.js runs without a build step.
 
 To register a built copy with Claude Code, add it to the `.mcp.json` file in the repository root:
 

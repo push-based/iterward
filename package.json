@@ -1,10 +1,20 @@
 {
-  "name": "@push-based/looplock",
-  "version": "0.3.0",
+  "name": "@push-based/looplock-source",
+  "private": true,
   "type": "module",
-  "bin": { "looplock": "./dist/bin.mjs" },
-  "files": ["dist"],
-  "engines": { "node": ">=22.18" },
-  "scripts": { "build": "rm -rf dist && tsc -p tsconfig.build.json && chmod +x dist/bin.mjs", "test": "node --test '**/*.spec.mts'" },
-  "devDependencies": { "typescript": "5.9.3", "@types/node": "^22" }
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "nx run-many -t build",
+    "test": "nx run-many -t test",
+    "release": "nx release"
+  },
+  "devDependencies": {
+    "@nx/js": "^23.2.1",
+    "nx": "^23.2.1"
+  },
+  "overrides": {
+    "smol-toml": "^1.9.0"
+  }
 }
