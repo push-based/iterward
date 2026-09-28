@@ -6,12 +6,12 @@ import type { Ctx } from '../context.mts';
 import { now } from '../util.mts';
 
 /**
- * At the initial state, take each question file of the run folder that the ledger doesn't hold, in numeric order
+ * After a step's result, take each question file of the run folder that the ledger doesn't hold, in numeric order
  * of its {n}, as pending. The id is the file name without `.md`, and `file` is run-relative. Returns the new ones.
  */
 export function scanQuestions({ cfg }: Ctx, runPath: string, run: Run): Question[] {
     const pattern = cfg.questions;
-    if (!pattern || run.status !== cfg.initial) return [];
+    if (!pattern) return [];
     const held = new Set(run.questions.map((q) => q.id));
     const askedAt = now();
     const found = readdirSync(dirname(runPath)).flatMap((file) => {

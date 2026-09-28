@@ -24,3 +24,10 @@ export function checkFreezes({ cfg }: Ctx, runPath: string, run: Run) {
     });
     if (broken.length) throw new FreezeError(broken.join('\n'));
 }
+
+/** The gate whose freeze a human move into `to` drops: the one that froze the artifact the step `to` writes. */
+export function dropsOf({ cfg }: Ctx, run: Run, to: string): string | undefined {
+    const a = cfg.steps[to]?.writes;
+    if (!a) return undefined;
+    return Object.entries(cfg.gates).find(([g, x]) => x.freezes.includes(a) && Object.values(run.freezes).some((f) => f.by === g))?.[0];
+}

@@ -22,7 +22,7 @@ description: >-
 
 ## Input
 
-`Build the plan. Run: <RUN>. Report: <DOCUMENT>. Note: '<NOTE>'.`, then optionally `Fixes:` and the error lines to fix. The plan is `plan.md` in the run folder, which the gate froze, and the latest `verify.<N>.md` holds the findings of a failed verification.
+The standard message: `Step: build`, `Run: <RUN>`, `Document: <DOCUMENT>`, `Inputs:` with `subject: <SUBJECT>`, `Note:` with the human's latest note or `none`, and `Fixes:` with the error lines to fix or `none`. The plan is `plan.md` in the run folder, which the gate froze, and the latest `verify.<N>.md` holds the findings of a failed verification.
 
 <!-- TODO: what to read first, and when to return blocked -->
 

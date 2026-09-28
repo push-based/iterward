@@ -1,21 +1,25 @@
+import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import type { Run } from '../../../config.mts';
-import { type Ctx, frozenFiles } from '../../context.mts';
+import { type Ctx, frozenFiles, inRunDir } from '../../context.mts';
 import { pendingQuestions } from '../../decisions/pending-questions.mts';
+import { dropsOf } from '../../run/freezes.mts';
 import { humanEdges } from '../../run/human-edges.mts';
+import { fileSha256 } from '../../util.mts';
+import { sinceHuman } from '../../views/internal/since-human.mts';
 
 export type StopKind = 'questions' | 'gate' | 'blocked' | 'status';
 
 /**
  * A move the human can make now: the call that records it, what the call takes, and what it changes besides the
- * status. `freezes` lists the files it freezes, `drops` the gate whose freeze it drops with that gate's files, and
- * `refreezes` the answered question files it freezes again at their current bytes. Paths are as the run path names them.
+ * status. `freezes` lists the files it freezes, and `drops` the gate whose freeze it drops with that gate's files.
+ * Paths are as the run path names them.
  */
 export type Move =
     | { call: 'answer'; id: string; freezes: string[] }
-    | { call: 'gate'; gate: string; decision: 'approved' | 'rejected'; to: string; freezes?: string[]; refreezes?: string[] }
-    | { call: 'transition'; to: string; resumes?: true; retries?: true; resets?: true; drops?: { gate: string; files: string[] }; refreezes?: string[] };
+    | { call: 'gate'; gate: string; decision: 'approved' | 'rejected'; to: string; freezes?: string[]; drops?: { gate: string; files: string[] } }
+    | { call: 'transition'; to: string; resumes?: true; drops?: { gate: string; files: string[] } };
 
 /** A human move the run recorded. */
 export type Recorded =
@@ -23,26 +27,39 @@ export type Recorded =
     | { call: 'gate'; gate: string; decision: 'approved' | 'rejected'; note?: string; at: string }
     | { call: 'transition'; from: string; to: string; note: string; at: string };
 
-/** The human's moves from the current state: the stop kind's own moves, then each human edge. */
+/**
+ * A gate stop's own fields: the gate, its label, the files its approval freezes, and after an earlier decision,
+ * that decision with `changed`, the frozen files whose bytes differ from the ones the human judged then.
+ */
+export function gateFields(ctx: Ctx, runPath: string, run: Run, gate: string) {
+    const inRun = (file: string) => join(dirname(runPath), file);
+    const files = frozenFiles(ctx, gate);
+    const last = run.gates[gate]?.history.at(-1);
+    const changed = (file: string) => !existsSync(inRunDir(runPath, file)) || last!.judged[file] !== fileSha256(inRunDir(runPath, file));
+    return {
+        gate,
+        label: ctx.cfg.gates[gate].label,
+        freezes: files.map(inRun),
+        ...(last ? { last: { decision: last.decision, at: last.at }, changed: files.filter(changed).map(inRun) } : {}),
+    };
+}
+
+/** The human's moves now: an answer for each pending question, a gate's decisions, then each human move of the state. */
 function moves(ctx: Ctx, runPath: string, run: Run, kind: StopKind): Move[] {
     const { cfg } = ctx;
     const inRun = (file: string) => join(dirname(runPath), file);
-    // A human move into the initial state re-freezes the answered questions.
-    const refreezes = (to: string) => {
-        const files = to === cfg.initial ? run.questions.filter((q) => q.status === 'resolved').map((q) => inRun(q.file)) : [];
-        return files.length ? { refreezes: files } : {};
+    const drops = (to: string) => {
+        const g = dropsOf(ctx, run, to);
+        return g ? { drops: { gate: g, files: frozenFiles(ctx, g).map(inRun) } } : {};
     };
-    const list: Move[] = [];
-    if (kind === 'questions') for (const q of pendingQuestions(run)) list.push({ call: 'answer', id: q.id, freezes: [inRun(q.file)] });
+    const list: Move[] = pendingQuestions(run).map((q) => ({ call: 'answer', id: q.id, freezes: [inRun(q.file)] }));
     if (kind === 'gate') {
         const g = cfg.gates[run.status];
         const files = frozenFiles(ctx, run.status).map(inRun);
-        list.push({ call: 'gate', gate: run.status, decision: 'approved', to: g.next, ...(files.length ? { freezes: files } : {}) });
-        list.push({ call: 'gate', gate: run.status, decision: 'rejected', to: g.back, ...refreezes(g.back) });
+        list.push({ call: 'gate', gate: run.status, decision: 'approved', to: g.approve, ...(files.length ? { freezes: files } : {}) });
+        list.push({ call: 'gate', gate: run.status, decision: 'rejected', to: g.reject, ...drops(g.reject) });
     }
-    for (const { drops, ...edge } of humanEdges(ctx, run)) {
-        list.push({ call: 'transition', ...edge, ...(drops ? { drops: { gate: drops, files: frozenFiles(ctx, drops).map(inRun) } } : {}), ...refreezes(edge.to) });
-    }
+    for (const { drops: _, ...edge } of humanEdges(ctx, run)) list.push({ call: 'transition', ...edge, ...drops(edge.to) });
     return list;
 }
 
@@ -60,17 +77,13 @@ function recorded({ cfg }: Ctx, run: Run): Recorded[] {
 
 /**
  * A stop for the human, as data: the kind's own fields, the human's moves, the preflight warnings, the dispatches
- * between the last two distinct stops, and the human moves since the latest closed dispatch. Repeating the same
- * stop repeats `since` and `recorded`. The orchestrator decides how to word each field, and when to show it.
+ * since the last human move, and the human moves since the latest closed dispatch. The orchestrator decides how
+ * to word each field, and when to show it.
  */
 export function stop(ctx: Ctx, runPath: string, run: Run, kind: StopKind, fields: Record<string, unknown> = {}) {
-    const n = run.dispatches.length;
-    const m = run.stopMark ?? { from: 0, to: 0 };
-    if (m.to !== n) run.stopMark = { from: m.to, to: n };
-    const { from, to } = run.stopMark ?? m;
-    const since = run.dispatches.slice(from, to).map((d) => {
+    const since = sinceHuman(run).map((d) => {
         const minutes = d.closedAt ? Math.round((Date.parse(d.closedAt) - Date.parse(d.openedAt)) / 6000) / 10 : undefined;
-        return { id: d.id, name: d.name, agent: d.agent, attempt: d.attempt, outcome: d.outcome, ...(minutes != null ? { minutes } : {}), ...(d.note ? { note: d.note.slice(0, 300) } : {}) };
+        return { id: d.id, name: d.name, agent: d.agent, attempt: d.attempt, outcome: d.outcome, ...(minutes != null ? { minutes } : {}), ...(d.fixes?.length ? { fixes: d.fixes.join('\n').slice(0, 300) } : {}) };
     });
     return {
         do: 'stop',

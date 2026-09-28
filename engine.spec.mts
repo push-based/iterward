@@ -1,9 +1,9 @@
 /**
  * node --test engine.spec.mts
  *
- * Proves the rules that cut across the engine's modules, on the fixture loop with spy hooks: a
- * frozen file edited after approval, the `maxFailed` limit and its reset, every stop kind with its moves,
- * warnings, `since`, and `recorded` as data, `show`, and that the repository holds no consumer vocabulary.
+ * Proves the rules that cut across the engine's modules, on the fixture loop with spy hooks: a frozen file
+ * edited after approval, the `opens` limit on a cycle between two steps and its reset, every stop kind with its
+ * moves, warnings, `since`, and `recorded` as data, `show`, and that the repository holds no consumer vocabulary.
  */
 
 import assert from 'node:assert/strict';
@@ -12,23 +12,25 @@ import { dirname, join } from 'node:path';
 import { beforeEach, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { context } from './engine/context.mts';
+import { stop } from './engine/dispatch/internal/stop.mts';
 import { atGate, building, spy, started, tick } from './engine/dispatch/spec/spy-loop.mts';
 import { FreezeError } from './engine.mts';
 
 beforeEach(() => spy());
 
-test('an edited frozen file parks the run at the next agent transition and refuses a human transition', async () => {
+test('an edited frozen file parks the run at the next agent transition and refuses a human transition, but for one that drops the freeze', async () => {
     const env = await building();
     env.write('plan.md', 'ok', 'edited after approval\n');
     env.write('build.1.report.md');
     const stop = await env.result();
     assert.deepEqual([stop.stop, stop.blockedFrom, stop.reason], ['blocked', 'build', 'plan.md changed after Gate froze it']);
     await assert.rejects(env.L.transition(env.runPath, env.run, 'build', { via: 'human', note: 'go on' }), FreezeError);
-    await env.L.transition(env.runPath, env.run, 'plan', { via: 'human', note: 'replan on the edited plan' });
-    assert.deepEqual([env.run.status, env.run.freezes, env.run.gates.gate.decision], ['plan', {}, undefined]);
+    await env.L.transition(env.runPath, env.run, 'revision', { via: 'human', note: 'replan on the edited plan' });
+    assert.deepEqual([env.run.status, env.run.freezes, env.run.gates.gate.decision], ['revision', {}, undefined]);
 });
 
-test('maxFailed: 3 failed verdicts since the approval park the run with the engine\'s note, and a human transition into build resets the count', async () => {
+test('opens: a build and verify cycle parks at the fourth build open since the approval, and a human move into build resets the count', async () => {
     const env = await building();
     for (const n of [1, 2, 3]) {
         env.write(`build.${n}.report.md`);
@@ -36,21 +38,21 @@ test('maxFailed: 3 failed verdicts since the approval park the run with the engi
         env.write(`verify-build.${n}.report.md`, 'fail');
         const after = await env.result();
         if (n < 3) assert.equal(after.agent, 'builder');
-        else assert.deepEqual([after.stop, after.reason], ['blocked', `3 failed verify-build verdicts since the last human move into build; the latest report is ${join(env.runDir, 'verify-build.3.report.md')}.`]);
+        else assert.deepEqual([after.stop, after.reason], ['blocked', `build opened 3 times since the last human move, and the loop allows 3; the latest build dispatch ended ok with ${join(env.runDir, 'build.3.report.md')}.`]);
     }
-    assert.equal(env.L.show(env.run).failed, 3);
+    assert.equal(env.L.show(env.run).opens, 3);
+    await tick();
     await env.L.transition(env.runPath, env.run, 'build', { via: 'human', note: 'try the fill once more' });
-    assert.equal(env.L.show(env.run).failed, 0);
+    assert.equal(env.L.show(env.run).opens, 0);
     assert.equal((await env.next()).agent, 'builder');
 });
 
-test('stops are data: each kind prints its fields, its moves, and the warnings; a repeated stop repeats since and recorded', async () => {
+test('stops are data: each kind prints its fields, its moves, and the warnings; since lists the dispatches after the last human move', async () => {
     const warnings = ['no linter: the checks skip lint'];
     spy({ preflight: () => ({ errors: [], warnings }) });
     const env = await started();
     const inRun = (...files: string[]) => files.map((f) => join(env.runDir, f));
-    const frozen = inRun('notes.md', 'plan.md', 'diff.md', 'summary.md');
-    const answered = inRun('Q-1.md', 'Q-2.md');
+    const frozen = inRun('notes.md', 'plan.md', 'diff.md');
     await env.next();
     env.write('notes.md');
     await env.result();
@@ -60,29 +62,31 @@ test('stops are data: each kind prints its fields, its moves, and the warnings; 
     const questions = await env.result();
     assert.deepEqual(Object.keys(questions), ['do', 'stop', 'status', 'questions', 'moves', 'warnings', 'since', 'recorded']);
     assert.deepEqual(questions.moves, [{ call: 'answer', id: 'Q-1', freezes: inRun('Q-1.md') }, { call: 'answer', id: 'Q-2', freezes: inRun('Q-2.md') }]);
-    assert.deepEqual([questions.warnings, questions.recorded], [warnings, []]);
+    assert.deepEqual([questions.status, questions.warnings, questions.recorded], ['revision', warnings, []]);
     assert.deepEqual(questions.since.map((d: any) => [d.id, d.name, d.agent, d.attempt, d.outcome]), [[1, 'discovery', 'scout', 1, 'ok'], [2, 'draft', 'planner', 1, 'needs-decisions']]);
 
+    await tick();
     await env.L.answerQuestions(env.runPath, env.run, [{ id: 'Q-1', option: 'A', answer: 'keep the purpose values' }]);
     const repeated = await env.next();
-    assert.deepEqual([repeated.questions.map((q: any) => q.id), repeated.since], [['Q-2'], questions.since]);
+    assert.deepEqual([repeated.questions.map((q: any) => q.id), repeated.since], [['Q-2'], []]);
     assert.deepEqual(repeated.recorded, [{ call: 'answer', id: 'Q-1', chosen: 'A', answer: 'keep the purpose values', at: env.run.questions[0].resolvedAt }]);
     await env.L.answerQuestions(env.runPath, env.run, [{ id: 'Q-2', option: 'custom', answer: 'use the raw value' }]);
     await tick();
 
     assert.equal((await env.next()).agent, 'planner');
     env.write('plan.md');
-    env.write('diff.md');
     const gate = await env.result();
     assert.deepEqual(Object.keys(gate), ['do', 'stop', 'status', 'gate', 'label', 'freezes', 'moves', 'warnings', 'since', 'recorded']);
     assert.deepEqual(gate.moves, [
         { call: 'gate', gate: 'gate', decision: 'approved', to: 'build', freezes: frozen },
-        { call: 'gate', gate: 'gate', decision: 'rejected', to: 'plan', refreezes: answered },
+        { call: 'gate', gate: 'gate', decision: 'rejected', to: 'revision' },
     ]);
     await env.L.reject(env.runPath, env.run, 'gate', 'group C2 is wrong');
-    const again = await env.next();
-    assert.deepEqual([again.stop, again.since], ['gate', gate.since]);
-    assert.deepEqual(again.recorded, [{ call: 'gate', gate: 'gate', decision: 'rejected', note: 'group C2 is wrong', at: env.run.gates.gate.at }]);
+    assert.match((await env.next()).message, /\nNote: group C2 is wrong\n/);
+    env.write('plan.md', 'ok', 'group C2 split\n');
+    const again = await env.result();
+    assert.deepEqual(Object.keys(again), ['do', 'stop', 'status', 'gate', 'label', 'freezes', 'last', 'changed', 'moves', 'warnings', 'since', 'recorded']);
+    assert.deepEqual([again.last.decision, again.changed, again.since.map((d: any) => d.name)], ['rejected', inRun('plan.md'), ['revision']]);
 
     await env.L.approve(env.runPath, env.run, 'gate', 'ship it');
     await env.next();
@@ -90,8 +94,8 @@ test('stops are data: each kind prints its fields, its moves, and the warnings; 
     const blocked = await env.result();
     assert.deepEqual(Object.keys(blocked), ['do', 'stop', 'status', 'blockedFrom', 'reason', 'moves', 'warnings', 'since', 'recorded']);
     assert.deepEqual(blocked.moves, [
-        { call: 'transition', to: 'build', resumes: true, resets: true },
-        { call: 'transition', to: 'plan', drops: { gate: 'gate', files: frozen }, refreezes: answered },
+        { call: 'transition', to: 'build', resumes: true },
+        { call: 'transition', to: 'revision', drops: { gate: 'gate', files: frozen } },
     ]);
     assert.deepEqual([blocked.warnings, blocked.since.map((d: any) => [d.name, d.outcome])], [warnings, [['build', 'blocked']]]);
 
@@ -105,24 +109,22 @@ test('stops are data: each kind prints its fields, its moves, and the warnings; 
     assert.deepEqual(Object.keys(status), ['do', 'stop', 'status', 'moves', 'warnings', 'since', 'recorded']);
     assert.deepEqual([status.stop, status.status], ['status', 'release']);
     assert.deepEqual(status.moves, [
-        { call: 'transition', to: 'plan', drops: { gate: 'gate', files: frozen }, refreezes: answered },
-        { call: 'transition', to: 'build', retries: true, resets: true },
+        { call: 'transition', to: 'revision', drops: { gate: 'gate', files: frozen } },
+        { call: 'transition', to: 'build' },
     ]);
 });
 
-test('recorded lists a human transition, and a gate approval without a note', async () => {
+test('recorded lists the human moves since the latest closed dispatch: a gate approval without a note, then a human transition', async () => {
     const env = await atGate();
     await env.L.approve(env.runPath, env.run, 'gate');
     const approvedAt = env.run.gates.gate.at;
     await tick();
-    // No dispatch closes between the approval and the transition back, so the next stop records both.
-    await env.L.transition(env.runPath, env.run, 'plan', { via: 'human', note: 'the purpose is wrong' });
-    spy({ route: () => ({ gate: 'gate', onRefusal: 'revision' }) });
-    const stop = await env.next();
-    assert.deepEqual([stop.stop, stop.recorded], ['gate', [
+    await env.L.transition(env.runPath, env.run, 'revision', { via: 'human', note: 'the purpose is wrong' });
+    const out = stop(context(env.L.cfg), env.runPath, env.run, 'status');
+    assert.deepEqual(out.recorded, [
         { call: 'gate', gate: 'gate', decision: 'approved', at: approvedAt },
-        { call: 'transition', from: 'build', to: 'plan', note: 'the purpose is wrong', at: env.run.history.findLast((h) => h.from === 'build')!.at },
-    ]]);
+        { call: 'transition', from: 'build', to: 'revision', note: 'the purpose is wrong', at: env.run.history.at(-1)!.at },
+    ]);
     assert.equal(env.run.history.filter((h) => h.human).length, 2, 'the approval and the transition');
 });
 
@@ -140,13 +142,12 @@ test('every stop carries the preflight warnings, also after the gate approval', 
 test('show prints only the run\'s state', async () => {
     const env = await atGate();
     await env.L.reject(env.runPath, env.run, 'gate', 'group C2 is wrong');
-    spy({ route: () => ({ dispatch: 'revision' }) });
     await env.next();
     const shown = env.L.show(env.run);
     assert.deepEqual({ ...shown, gates: { gate: { ...shown.gates.gate, at: 0 } } }, {
-        status: 'plan', blockedFrom: null, inputs: { subject: 'the progress bar' },
+        status: 'revision', blockedFrom: null, inputs: { subject: 'the progress bar' },
         gates: { gate: { decision: 'rejected', note: 'group C2 is wrong', at: 0 } },
-        questions: [], freezes: {}, warnings: [], failed: 0, dispatches: 3,
+        questions: [], freezes: {}, warnings: [], opens: 1, dispatches: 3,
         open: { id: 3, agent: 'planner', document: join(env.runDir, 'plan.md') },
     });
 });

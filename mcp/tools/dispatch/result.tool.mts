@@ -4,7 +4,7 @@ import { ANNOTATIONS, COMMON } from '../../shared/schema.mts';
 const schema: ToolSchema = {
     name: 'result',
     description:
-        "Reads the open dispatch's document and applies the action of its status. An unusable or refused result re-dispatches the agent with the reason, and parks the run past a limit. Returns the next move, as `next` does.",
+        "Runs the guard of the open step's document, which returns its status, and follows the loop's machine. An unusable or refused result, or a refused move, opens the same step again with the lines to fix, and a step opened too many times since the last human move parks the run. Returns the next move, as `next` does.",
     inputSchema: { type: 'object', properties: { run: COMMON.run }, required: ['run'], additionalProperties: false },
     annotations: { title: 'Apply a result', ...ANNOTATIONS.write },
 };

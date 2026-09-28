@@ -3,8 +3,8 @@
  * looplock, so the folder works wherever you copy it. Every document carries its status in its frontmatter.
  */
 
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { basename } from 'node:path';
 
 const FRONTMATTER = /^---\n([\s\S]*?)\n---(?:\n|$)/;
 
@@ -14,18 +14,10 @@ function frontmatter(path: string): Record<string, string> | undefined {
     return m ? Object.fromEntries(m[1].split('\n').map((l) => /^(\w+):(.*)$/.exec(l)).filter((x) => x !== null).map(([, k, v]) => [k, v.trim()])) : undefined;
 }
 
-/** The result hook: the step's status is the `status` line of its document's frontmatter. */
-export function readResult(path: string): { status: string } | { error: string } {
+/** A document's guard: its status is the `status` line of its frontmatter. */
+export function statusGuard(path: string): { status: string } | { errors: string[] } {
     const status = frontmatter(path)?.status;
-    return status ? { status } : { error: `${basename(path)} § frontmatter: no status` };
-}
-
-/** The route: enter the gate once the planner's plan says `ok` and no human note came after the planner's last dispatch. */
-export function route({ runDir, run }: { runDir: string; run: { history: { at: string; human?: true }[]; dispatches: { name: string; openedAt: string }[] } }) {
-    const plan = join(runDir, 'plan.md');
-    const since = run.dispatches.findLast((d) => d.name === 'planner')?.openedAt ?? '';
-    const noted = run.history.some((h) => h.human && h.at > since);
-    return existsSync(plan) && frontmatter(plan)?.status === 'ok' && !noted ? { gate: 'gate', onRefusal: 'planner' } : { dispatch: 'planner' };
+    return status ? { status } : { errors: [`${basename(path)} § frontmatter: no status`] };
 }
 
 /** Writes the human's answer into the question file's frontmatter, through a temporary file and a rename. */
@@ -40,7 +32,8 @@ export function onAnswer({ question, option, answer }: { question: { id: string;
 }
 
 /** The plan's guard: a plan needs `id` and `status` in its frontmatter. */
-export function planGuard(path: string): string[] {
+export function planGuard(path: string): { status: string } | { errors: string[] } {
     const fm = frontmatter(path);
-    return ['id', 'status'].filter((k) => !fm?.[k]).map((k) => `plan.md § frontmatter: no ${k}`);
+    const errors = ['id', 'status'].filter((k) => !fm?.[k]).map((k) => `plan.md § frontmatter: no ${k}`);
+    return errors.length ? { errors } : { status: fm!.status };
 }

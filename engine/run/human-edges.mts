@@ -1,22 +1,21 @@
-import type { HumanEdge, Run } from '../../config.mts';
+import type { Run } from '../../config.mts';
 import type { Ctx } from '../context.mts';
+import { dropsOf } from './freezes.mts';
 
-/** A human edge of the run's current state; `resumes` marks a blocked run's way back into the state it blocked from. */
-export type RunEdge = HumanEdge & { resumes?: true };
+/** A move a human can make with `transition`: `resumes` marks a blocked run's way back into the step it parked from, `drops` the gate whose freeze the move drops. */
+export interface RunEdge { to: string; resumes?: true; drops?: string }
 
 /**
- * The moves a human can make with `transition` now: the compiled human edges of the state, or for a blocked run
- * the resume edge into `blockedFrom` followed by the human edges of `blockedFrom`.
+ * The moves a human can make with `transition` now: the loop's human moves of the state, or for a blocked run
+ * the resume into `blockedFrom` followed by the human moves of `blockedFrom`.
  */
-export function humanEdges({ cfg }: Ctx, run: Run): RunEdge[] {
-    if (run.status !== 'blocked') return (cfg.human[run.status] ?? []).map((e) => ({ ...e }));
-    const from = run.blockedFrom;
-    if (!from) return [];
-    const edges: RunEdge[] = [{ to: from, resumes: true, ...(from === cfg.limits.failed?.at ? { resets: true as const } : {}) }];
-    for (const e of cfg.human[from] ?? []) {
-        const have = edges.find((x) => x.to === e.to);
-        if (have) Object.assign(have, e);
-        else edges.push({ ...e });
-    }
-    return edges;
+export function humanEdges(ctx: Ctx, run: Run): RunEdge[] {
+    const blocked = run.status === 'blocked';
+    const at = blocked ? run.blockedFrom : run.status;
+    if (!at) return [];
+    const tos = [...new Set([...(blocked ? [at] : []), ...(ctx.cfg.human[at] ?? [])])];
+    return tos.map((to) => {
+        const drops = dropsOf(ctx, run, to);
+        return { to, ...(blocked && to === at ? { resumes: true as const } : {}), ...(drops ? { drops } : {}) };
+    });
 }

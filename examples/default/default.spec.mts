@@ -26,8 +26,9 @@ test('the default loop takes a run from plan to done', () => {
     };
     const doc = (file: string, status: string) => writeFileSync(join(dir, file), `---\nid: ${file.replace(/\.md$/, '')}\nstatus: ${status}\n---\n`);
 
+    const message = (step: string, document: string, note = 'none') => [`Step: ${step}`, `Run: ${run}`, `Document: ${join(dir, document)}`, 'Inputs:', '  subject: the settings page', `Note: ${note}`, 'Fixes: none'].join('\n');
     assert.deepEqual(cli('new', '--config', LOOP, '--subject', 'the settings page'), { ok: true, status: 'plan', warnings: [] });
-    assert.equal(cli('next').message, `Plan the settings page. Run: ${run}. Note: ''.`);
+    assert.equal(cli('next').message, message('plan', 'plan.md'));
 
     doc('plan.md', 'needs-decisions');
     writeFileSync(join(dir, 'Q-1.md'), '---\nid: Q-1\nstatus: pending\n---\n\nWhich layout?\n\n- A. One page\n- B. Two pages\n');
@@ -44,20 +45,20 @@ test('the default loop takes a run from plan to done', () => {
     assert.deepEqual(gate.moves[0], { call: 'gate', gate: 'gate', decision: 'approved', to: 'build', freezes: [join(dir, 'plan.md')] });
 
     cli('gate', 'gate', '--decision', 'rejected', '--note', 'Add a cancel button.');
-    assert.equal(cli('next').message, `Plan the settings page. Run: ${run}. Note: 'Add a cancel button.'.`);
+    assert.equal(cli('next').message, message('plan', 'plan.md', 'Add a cancel button.'));
     doc('plan.md', 'ok');
     assert.equal(cli('result').stop, 'gate');
     assert.equal(cli('gate', 'gate', '--decision', 'approved').status, 'build');
 
-    assert.equal(cli('next').message, `Build the plan. Run: ${run}. Report: ${join(dir, 'build.1.md')}. Note: ''.`);
+    assert.equal(cli('next').message, message('build', 'build.1.md'));
     doc('build.1.md', 'ok');
     assert.equal(cli('result').agent, 'verifier');
     doc('verify.1.md', 'fail');
-    assert.match(cli('result').message, /Report: .*build\.2\.md\./);
+    assert.match(cli('result').message, /^Document: .*build\.2\.md$/m);
     doc('build.2.md', 'ok');
-    assert.match(cli('result').message, /Report: .*verify\.2\.md\./);
+    assert.match(cli('result').message, /^Document: .*verify\.2\.md$/m);
     doc('verify.2.md', 'pass');
     const done = cli('result');
     assert.deepEqual([done.stop, done.status, done.moves], ['status', 'done', []]);
-    assert.equal(cli('show').failed, 1);
+    assert.deepEqual([cli('show').status, cli('show').opens], ['done', 0]);
 });

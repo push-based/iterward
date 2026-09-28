@@ -8,7 +8,7 @@ import { recordGate } from './internal/record-gate.mts';
 
 /**
  * Approve a gate: its frozen artifacts' guards run with `approve`, the decision records the hash of each file
- * the human judged, the gate freezes those files, and the run moves to the gate's `next`.
+ * the human judged, the gate freezes those files, and the run moves to the machine's `<gate>.approve`.
  */
 export async function approve(ctx: Ctx, runPath: string, run: Run, name: string, note?: string): Promise<Run> {
     const g = gateOf(ctx, run, name);
@@ -16,5 +16,5 @@ export async function approve(ctx: Ctx, runPath: string, run: Run, name: string,
     checkFreezes(ctx, runPath, run);
     recordGate(ctx, runPath, run, name, 'approved', note);
     for (const file of frozenFiles(ctx, name)) freeze(runPath, run, file, name);
-    return transition(ctx, runPath, run, g.next, { via: 'gate', note });
+    return transition(ctx, runPath, run, g.approve, { via: 'gate', note });
 }

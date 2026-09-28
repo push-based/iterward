@@ -2,7 +2,7 @@
 
 This tutorial runs the default loop in `examples/default/` without any agent. You play every agent yourself and write each document by hand.
 
-The default loop is a plan, gate, build, and verify loop, written as five stages in `default.loop.json`. The following diagram shows its states and what moves the run between them:
+The default loop is a plan, gate, build, and verify loop, written as three steps, a gate, and a stop in `default.loop.json`. The following diagram shows its states and what moves the run between them:
 
 ```mermaid
 stateDiagram-v2
@@ -17,9 +17,9 @@ stateDiagram-v2
     done --> [*]
 ```
 
-The run also stops in places the diagram leaves out. At `plan`, the run waits for you when the planner writes a question file, such as `Q-1.md`, and it continues after you answer. Any state except `done` can move to `blocked`, when an agent returns `blocked` or a limit runs out, such as 3 failed verifications since the approval. Every stop lists your moves from there, such as a `transition` back to `plan`.
+The run also stops in places the diagram leaves out. At `plan`, the run waits for you when the planner writes a question file, such as `Q-1.md`, and it continues after you answer. Any step can move to `blocked`, when an agent returns `blocked` or a step opens more than 3 times since your last move, such as a fourth build after 3 failed verifications. Every stop lists your moves from there, such as a `transition` back to `plan`.
 
-To see the states, targets, outcomes, and human edges the stages compile to, run `node bin.mts compile --config examples/default/default.loop.json`.
+To see each step's outcomes and their targets, run `node bin.mts compile --config examples/default/default.loop.json`.
 
 ## Take a run to done
 
@@ -42,7 +42,7 @@ Run these steps from the repository root. If you followed the quick start in the
    The run is at `plan`, so the CLI dispatches the planner:
 
    ```json
-   {"do":"dispatch","id":1,"agent":"planner","message":"Plan the settings page. Run: runs/example/run.json. Note: ''."}
+   {"do":"dispatch","id":1,"agent":"planner","message":"Step: plan\nRun: runs/example/run.json\nDocument: runs/example/plan.md\nInputs:\n  subject: the settings page\nNote: none\nFixes: none"}
    ```
 
 3. As the planner, write the plan to `plan.md` in the run folder. Its frontmatter carries its `id` and its status:
@@ -57,12 +57,12 @@ Run these steps from the repository root. If you followed the quick start in the
    node bin.mts result --run runs/example/run.json
    ```
 
-   The plan says `ok`, so the route enters the gate, and the run stops for your decision. The stop lists your moves and the file an approval freezes:
+   The plan says `ok`, so the machine moves the run into the gate, and the run stops for your decision. The stop lists your moves and the file an approval freezes:
 
    ```json
    {"do":"stop","stop":"gate","status":"gate","gate":"gate","label":"Gate","freezes":["runs/example/plan.md"],
     "moves":[{"call":"gate","gate":"gate","decision":"approved","to":"build","freezes":["runs/example/plan.md"]},{"call":"gate","gate":"gate","decision":"rejected","to":"plan"}],
-    "warnings":[],"since":[{"id":1,"name":"planner","agent":"planner","attempt":1,"outcome":"ok","minutes":0}],"recorded":[]}
+    "warnings":[],"since":[{"id":1,"name":"plan","agent":"planner","attempt":1,"outcome":"ok","minutes":0}],"recorded":[]}
    ```
 
 5. As the human, approve the plan. The approval freezes `plan.md`, and the run moves to `build`:
@@ -94,7 +94,7 @@ Run these steps from the repository root. If you followed the quick start in the
    The run moves back to `build`, and the CLI dispatches the builder again. The retry writes a new document, so the first one stays:
 
    ```json
-   {"do":"dispatch","id":4,"agent":"builder","message":"Build the plan. Run: runs/example/run.json. Report: runs/example/build.2.md. Note: ''."}
+   {"do":"dispatch","id":4,"agent":"builder","message":"Step: build\nRun: runs/example/run.json\nDocument: runs/example/build.2.md\nInputs:\n  subject: the settings page\nNote: none\nFixes: none"}
    ```
 
 9. As the builder, write the second document, and record it:
@@ -111,6 +111,6 @@ Run these steps from the repository root. If you followed the quick start in the
     node bin.mts result --run runs/example/run.json
     ```
 
-    The run stops at `done`, with no moves left. Run `node bin.mts show --run runs/example/run.json` for the run's state, which counts 1 failed verification.
+    The run stops at `done`, with no moves left. Run `node bin.mts show --run runs/example/run.json` for the run's state.
 
 To start over, delete `runs/example/`. For the files the run wrote, see [Run format](run-format.md). To drive the same loop with agents, see [The default loop](../examples/default/README.md).

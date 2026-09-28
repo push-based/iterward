@@ -1,22 +1,30 @@
 {
   "name": "default",
   "inputs": { "required": ["subject"] },
-  "questions": "Q-{n}.md",
-  "result": { "module": "./hooks.mts", "export": "readResult" },
-  "onAnswer": { "module": "./hooks.mts", "export": "onAnswer" },
+  "questions": { "file": "Q-{n}.md", "onAnswer": "./hooks.mts#onAnswer" },
   "artifacts": {
-    "plan": { "file": "plan.md", "guard": { "module": "./hooks.mts", "export": "planGuard" } },
-    "build-report": { "file": "build.{attempt}.md" },
-    "verify-report": { "file": "verify.{attempt}.md" }
+    "plan": { "file": "plan.md", "guard": "./hooks.mts#planGuard" },
+    "build-report": { "file": "build.{attempt}.md", "guard": "./hooks.mts#statusGuard" },
+    "verify-report": { "file": "verify.{attempt}.md", "guard": "./hooks.mts#statusGuard" }
   },
-  "stages": [
-    { "plan": "plan", "route": { "module": "./hooks.mts", "export": "route" }, "dispatches": {
-      "planner": { "agent": "planner", "artifact": "plan", "message": "Plan {subject}. Run: {runPath}. Note: '{note}'.",
-        "outcomes": { "ok": { "route": true }, "needs-decisions": { "ask": true }, "blocked": { "park": true } } } } },
-    { "gate": "gate", "label": "Gate", "freezes": ["plan"] },
-    { "work": "build", "dispatch": { "agent": "builder", "artifact": "build-report", "message": "Build the plan. Run: {runPath}. Report: {document}. Note: '{note}'." } },
-    { "verify": "verify", "dispatch": { "agent": "verifier", "artifact": "verify-report", "message": "Verify the build. Run: {runPath}. Report: {document}." }, "maxFailed": 3 },
-    { "end": "done" }
-  ],
-  "limits": { "redispatch": 2, "unusable": 1 }
+  "steps": {
+    "plan": { "agent": "planner", "writes": "plan", "outcomes": ["ok", "needs-decisions", "blocked"] },
+    "build": { "agent": "builder", "writes": "build-report", "outcomes": ["ok", "blocked"] },
+    "verify": { "agent": "verifier", "writes": "verify-report", "outcomes": ["pass", "fail", "blocked"] }
+  },
+  "gates": { "gate": { "label": "Gate", "freezes": ["plan"] } },
+  "stops": { "done": {} },
+  "machine": {
+    "start": "plan",
+    "plan.ok": "gate",
+    "plan.needs-decisions": { "ask": "plan" },
+    "gate.approve": "build",
+    "gate.reject": "plan",
+    "build.ok": "verify",
+    "verify.pass": "done",
+    "verify.fail": "build",
+    "*.blocked": "park"
+  },
+  "human": { "build": ["plan"], "verify": ["plan", "build"] },
+  "limits": { "opens": 3 }
 }

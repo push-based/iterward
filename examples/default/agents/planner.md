@@ -22,7 +22,7 @@ description: >-
 
 ## Input
 
-`Plan <SUBJECT>. Run: <RUN>. Note: '<NOTE>'.`, then optionally `Fixes:` and the error lines to fix. `<NOTE>` is the human's latest note, or empty.
+The standard message: `Step: plan`, `Run: <RUN>`, `Document: <DOCUMENT>`, `Inputs:` with `subject: <SUBJECT>`, `Note:` with the human's latest note or `none`, and `Fixes:` with the error lines to fix or `none`. `<DOCUMENT>` is `plan.md` in the run folder.
 
 <!-- TODO: the modes, told apart by the note and by the resolved question files in the run folder -->
 

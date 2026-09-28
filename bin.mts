@@ -2,13 +2,13 @@
 /**
  * looplock — the CLI a harness drives a run through. Every state change goes through it, so the rules in
  * engine.mts hold whichever agent calls it. It never starts an agent: `next` returns the dispatch to send,
- * and `result` hands the document the agent wrote to the loop's result hook.
+ * and `result` hands the document the agent wrote to its artifact's guard, which returns the status.
  *
  * Subcommands (a run names its loop file, so only `new` and `compile` take --config):
  *   new         --config <loop.json> --run <run.json> [--<input> <value> …]      runs the loop's preflight first
- *   compile     --config <loop.json>   the compiled loop, and the pointer of each value the compiler inferred
+ *   compile     --config <loop.json>   the compiled loop: each step's outcomes resolved from machine
  *   next        --run <run.json>       the move the run needs: {do: dispatch|stop, …}
- *   result      --run <run.json>       reads the open dispatch's document and applies the action of its status
+ *   result      --run <run.json>       runs the open step's guard on its document and follows the machine
  *   show        --run <run.json>       the run's state
  *   validate    <artifact> --run <run.json>        `ok`, or the artifact guard's error lines with exit 2
  *   answer      --run <run.json> --id <ID> --option <KEY|custom> --answer <the human's words>
@@ -26,7 +26,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { group, inferredOf, loadLoop, loop, pendingQuestions, printable, spill, VERSION, type Run } from './engine.mts';
+import { group, loadLoop, loop, pendingQuestions, printable, spill, VERSION, type Run } from './engine.mts';
 
 /** Commands whose second word is a name. */
 const NAMED = new Set(['validate', 'gate']);
@@ -97,7 +97,7 @@ const COMMANDS: Record<string, (a: Record<string, any>) => Promise<unknown>> = {
     async compile(a) {
         req(a, ['config']);
         const config = await loadLoop(a.config);
-        return { config: printable(config), inferred: inferredOf(config) };
+        return { config: printable(config) };
     },
     next: (a) => change(a, (L, r) => L.next(a.run, r)),
     result: (a) => change(a, (L, r) => L.result(a.run, r)),

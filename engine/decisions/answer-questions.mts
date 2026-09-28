@@ -12,7 +12,6 @@ import { hasText, now } from '../util.mts';
  */
 export async function answerQuestions(ctx: Ctx, runPath: string, run: Run, answers: { id?: string; option?: string; answer?: string }[]): Promise<Question[]> {
     const { cfg } = ctx;
-    if (run.status !== cfg.initial) throw new Error(`answer is only allowed at status ${cfg.initial}, not ${run.status}`);
     const problems = answers.flatMap(({ id, option, answer }, i) => {
         const q = run.questions.find((x) => x.id === id);
         return [

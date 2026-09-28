@@ -9,7 +9,7 @@ export interface Ctx {
     statuses: string[];
 }
 
-export const context = (cfg: LoopConfig): Ctx => ({ cfg, statuses: Object.keys(cfg.states) });
+export const context = (cfg: LoopConfig): Ctx => ({ cfg, statuses: [...Object.keys(cfg.steps), ...Object.keys(cfg.gates), ...Object.keys(cfg.stops), 'blocked'] });
 
 /** What every hook receives: the repository root is the working directory, and the run folder is absolute. */
 export const hookCtx = (runPath: string, run: Run): HookContext => ({ root: process.cwd(), runPath, runDir: resolve(dirname(runPath)), run });

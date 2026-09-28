@@ -1,6 +1,6 @@
 /**
- * The loop loader: it parses a JSON loop file, compiles its stages, resolves each hook by module and export
- * relative to the loop file, and computes the configuration hash a run records, so a run refuses to go on
+ * The loop loader: it parses a JSON loop file, compiles it, resolves each hook `"<file>#<export>"` relative to
+ * the loop file, and computes the configuration hash a run records, so a run refuses to go on
  * under a changed loop file or hook module.
  */
 
@@ -9,7 +9,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { compileLoop, keysOf, setAt } from './compile-loop.mts';
+import { compileLoop, hookParts, keysOf, setAt } from './compile-loop.mts';
 import type { LoopConfig, LoopFile } from './config.mts';
 
 /** Loads the loop file at `path`; throws on a loop the engine can't run, naming the place at fault. */
@@ -20,21 +20,22 @@ export async function loadLoop(path: string): Promise<LoopConfig> {
     } catch (e) {
         throw new Error(`loop file ${path}: ${(e as Error).message}`);
     }
-    const { config } = compileLoop(file);
+    const config = compileLoop(file);
     const dir = dirname(resolve(path));
     for (const [pointer, ref] of Object.entries(config.hooks)) {
         const place = `loop ${config.name}, ${keysOf(pointer).join('.')}`;
+        const { module, export: name } = hookParts(ref);
         let mod: Record<string, unknown>;
         try {
-            mod = await import(pathToFileURL(resolve(dir, ref.module)).href);
+            mod = await import(pathToFileURL(resolve(dir, module)).href);
         } catch (e) {
-            throw new Error(`${place}: ${ref.module} can't be imported: ${String((e as Error).message).split('\n')[0]}`);
+            throw new Error(`${place}: ${module} can't be imported: ${String((e as Error).message).split('\n')[0]}`);
         }
-        if (!Object.hasOwn(mod, ref.export)) throw new Error(`${place}: ${ref.module} has no export ${ref.export}`);
-        if (typeof mod[ref.export] !== 'function') throw new Error(`${place}: ${ref.module}'s export ${ref.export} is not a function`);
-        setAt(config, pointer, mod[ref.export]);
+        if (!Object.hasOwn(mod, name)) throw new Error(`${place}: ${module} has no export ${name}`);
+        if (typeof mod[name] !== 'function') throw new Error(`${place}: ${module}'s export ${name} is not a function`);
+        setAt(config, pointer, mod[name]);
     }
-    config.sha256 = configHash(path, Object.values(config.hooks).map((r) => resolve(dir, r.module)));
+    config.sha256 = configHash(path, Object.values(config.hooks).map((r) => resolve(dir, hookParts(r).module)));
     return config;
 }
 

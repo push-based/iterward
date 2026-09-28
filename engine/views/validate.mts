@@ -4,9 +4,11 @@ import { dirname } from 'node:path';
 import type { Run } from '../../config.mts';
 import { type Ctx, hookCtx, inRunDir } from '../context.mts';
 import { info, openDispatch } from '../dispatch/internal/open-dispatch.mts';
+import { errorsOf } from '../util.mts';
 
 /**
- * Run an artifact's guard with `event: 'validate'` on its file, and return its error lines. A per-attempt
+ * Run an artifact's guard with `event: 'validate'` on its file, and return its error lines, none when it returns
+ * a status. A per-attempt
  * artifact validates its highest-numbered existing file. An artifact without a guard has nothing to refuse.
  */
 export async function validate({ cfg }: Ctx, runPath: string, run: Run, artifact: string): Promise<string[]> {
@@ -22,5 +24,5 @@ export async function validate({ cfg }: Ctx, runPath: string, run: Run, artifact
     const path = inRunDir(runPath, file);
     if (!existsSync(path)) throw new Error(`the run folder holds no ${file}`);
     const o = openDispatch(run);
-    return a.guard ? a.guard(path, { ...hookCtx(runPath, run), event: 'validate', ...(o ? { dispatch: info(o) } : {}) }) : [];
+    return a.guard ? errorsOf(await a.guard(path, { ...hookCtx(runPath, run), event: 'validate', ...(o ? { dispatch: info(o) } : {}) })) : [];
 }

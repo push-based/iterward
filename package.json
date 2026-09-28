@@ -1,10 +1,10 @@
 {
   "name": "@push-based/looplock",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "bin": { "looplock": "./dist/bin.mjs" },
   "files": ["dist"],
   "engines": { "node": ">=22.18" },
-  "scripts": { "build": "tsc -p tsconfig.build.json && chmod +x dist/bin.mjs", "test": "node --test '**/*.spec.mts'" },
+  "scripts": { "build": "rm -rf dist && tsc -p tsconfig.build.json && chmod +x dist/bin.mjs", "test": "node --test '**/*.spec.mts'" },
   "devDependencies": { "typescript": "5.9.3", "@types/node": "^22" }
 }
