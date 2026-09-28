@@ -7,6 +7,7 @@
   "engines": { "node": ">=22.18" },
   "repository": { "type": "git", "url": "git+https://github.com/push-based/looplock.git", "directory": "packages/looplock" },
   "publishConfig": { "access": "public" },
+  "nx": { "name": "looplock" },
   "scripts": { "build": "rm -rf dist && tsc -p tsconfig.build.json && chmod +x dist/bin.mjs", "test": "node --test '**/*.spec.mts'" },
   "devDependencies": { "typescript": "5.9.3", "@types/node": "^22" }
 }
