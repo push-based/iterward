@@ -42,7 +42,7 @@ A refused gate entry or validator during an agent's outcome or the route re-disp
 
 ### Human moves
 
-A human has three moves: `answer` a question, approve or reject a `gate` with a note, and `transition` along a human edge with a note. The compiler gives each state its human edges:
+A human has three moves: `answer` questions, approve or reject a `gate` with a note, and `transition` along a human edge with a note. The compiler gives each state its human edges:
 
 - Every stage after the freezing gate, except an end stage, has an edge back to the gate's `back`, which drops the gate's freeze.
 - A stop stage after a verify stage, and the verify stage itself, have an edge that retries the verify stage's `fail`.
@@ -56,7 +56,7 @@ Every stop lists the human's moves from the current state as lines, with the eff
 - An approval runs the frozen artifacts' guards with `event: 'approve'`, records the sha256 of each frozen file, freezes those files, and moves the run to the gate's `next`.
 - A rejection needs a note, records it, and moves the run to the gate's `back`. Nothing freezes.
 - At `result`, while the run is at the initial state, each new file that matches `questions` joins the ledger as pending.
-- An answer needs the initial state and a pending question. The loop's `onAnswer` hook writes the answer into the question file, and then the engine resolves the question and freezes its file. A throw from the hook records nothing.
+- An `answer` call records one or more answers, all or none, at the initial state. The engine checks every answer first and refuses the call with every problem: a question that isn't pending, an empty option or answer, or a question that appears twice. Then, for each answer in order, the loop's `onAnswer` hook writes it into the question file, and the engine freezes the file and resolves the question. A throw from the hook refuses the call, and the run records none of its answers. The engine doesn't undo what the hook wrote for the call's earlier answers.
 
 ### Results
 

@@ -3,8 +3,8 @@
  *
  * Proves the run record and its rules, through these modules alone: `new` with the loop's preflight, the
  * configuration hash a run keeps, `transition` with its edges, freeze checks, freeze drops, gate entry, and entry
- * validators, `gate` approve and reject, the question scan, and `answer` with `onAnswer` and its freeze. The
- * FDS-shaped fixture loop in `spec/loop/` runs with its hooks replaced by spies the tests set.
+ * validators, `gate` approve and reject, the question scan, and `answer` with `onAnswer`, its freeze, and a list
+ * recorded all or none. The FDS-shaped fixture loop in `spec/loop/` runs with its hooks replaced by spies the tests set.
  */
 
 import assert from 'node:assert/strict';
@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 import type { Run } from '../config.mts';
 import { loadLoop } from '../load-config.mts';
 import { type Ctx, context } from './context.mts';
-import { answerQuestion } from './decisions/answer-question.mts';
+import { answerQuestions } from './decisions/answer-questions.mts';
 import { scanQuestions } from './decisions/scan-questions.mts';
 import { approve } from './gates/approve.mts';
 import { reject } from './gates/reject.mts';
@@ -132,21 +132,62 @@ test('answer calls onAnswer, resolves the question, and freezes its file; a thro
     env.write('RFC-1.md');
     env.write('RFC-2.md');
     scanQuestions(env.ctx, env.runPath, env.run);
-    await answerQuestion(env.ctx, env.runPath, env.run, { id: 'RFC-1', option: 'A', answer: 'keep the purpose tokens' });
+    await answerQuestions(env.ctx, env.runPath, env.run, [{ id: 'RFC-1', option: 'A', answer: 'keep the purpose tokens' }]);
     const [, ctx] = calls.find(([h]) => h === 'onAnswer')!;
     assert.deepEqual([ctx.question, ctx.option, ctx.answer], [{ id: 'RFC-1', file: join(env.dir, 'runs/a/RFC-1.md') }, 'A', 'keep the purpose tokens']);
     assert.deepEqual({ ...env.run.questions[0], askedAt: 0, resolvedAt: 0 }, { id: 'RFC-1', file: 'RFC-1.md', status: 'resolved', chosen: 'A', answer: 'keep the purpose tokens', askedAt: 0, resolvedAt: 0 });
     assert.equal(env.run.freezes['RFC-1.md'].by, 'RFC-1');
-    await rejects(answerQuestion(env.ctx, env.runPath, env.run, { id: 'RFC-1', option: 'B', answer: 'no' }), /RFC-1 is resolved already/);
-    await rejects(answerQuestion(env.ctx, env.runPath, env.run, { id: 'RFC-2', option: 'B' }), /needs --answer/);
+    await rejects(answerQuestions(env.ctx, env.runPath, env.run, [{ id: 'RFC-1', option: 'B', answer: 'no' }]), /^Error: RFC-1: is resolved already; a new question with supersedes replaces it$/);
+    await rejects(answerQuestions(env.ctx, env.runPath, env.run, [{ id: 'RFC-2', option: 'B' }]), /^Error: RFC-2: needs the human's words as its answer, verbatim$/);
 
     spy({ onAnswer: () => { throw new Error('RFC-2.md § Options: no option Z'); } });
     const before = JSON.stringify(env.run);
-    await rejects(answerQuestion(env.ctx, env.runPath, env.run, { id: 'RFC-2', option: 'Z', answer: 'z' }), /no option Z/);
+    await rejects(answerQuestions(env.ctx, env.runPath, env.run, [{ id: 'RFC-2', option: 'Z', answer: 'z' }]), /no option Z/);
     assert.equal(JSON.stringify(env.run), before);
 
     const gate = await approved();
-    await rejects(answerQuestion(gate.ctx, gate.runPath, gate.run, { id: 'RFC-1', option: 'A', answer: 'a' }), /only allowed at status plan, not build/);
+    await rejects(answerQuestions(gate.ctx, gate.runPath, gate.run, [{ id: 'RFC-1', option: 'A', answer: 'a' }]), /only allowed at status plan, not build/);
+});
+
+test('answer checks every entry before any hook runs, and refuses the call with every problem', async () => {
+    const env = await started();
+    for (const f of ['RFC-1.md', 'RFC-2.md', 'RFC-3.md']) env.write(f);
+    scanQuestions(env.ctx, env.runPath, env.run);
+    await answerQuestions(env.ctx, env.runPath, env.run, [{ id: 'RFC-1', option: 'A', answer: 'a' }]);
+    calls = [];
+    const before = JSON.stringify(env.run);
+    const err = await answerQuestions(env.ctx, env.runPath, env.run, [
+        { id: 'RFC-9', option: 'A', answer: 'a' },
+        { id: 'RFC-1', option: 'A', answer: 'a' },
+        { id: 'RFC-2', option: 'B', answer: ' ' },
+        { id: 'RFC-3', option: 'A', answer: 'a' },
+        { id: 'RFC-3', option: '', answer: 'b' },
+    ]).catch((e) => e);
+    assert.equal(err.message, [
+        "RFC-9: isn't in the ledger, which holds RFC-1, RFC-2, RFC-3",
+        'RFC-1: is resolved already; a new question with supersedes replaces it',
+        "RFC-2: needs the human's words as its answer, verbatim",
+        'RFC-3: needs an option key, or custom',
+        'RFC-3: appears more than once',
+    ].join('\n'));
+    assert.deepEqual([calls, JSON.stringify(env.run)], [[], before]);
+});
+
+test('answer records a list in order, all or none: a hook that throws on an entry restores the run and names the entry', async () => {
+    const env = await started();
+    for (const f of ['RFC-1.md', 'RFC-2.md', 'RFC-3.md']) env.write(f);
+    scanQuestions(env.ctx, env.runPath, env.run);
+    spy({ onAnswer: ({ question, option }: any) => { if (option === 'Z') throw new Error(`${question.id}.md § Options: no option Z`); } });
+    calls = [];
+    const before = JSON.stringify(env.run);
+    const err = await answerQuestions(env.ctx, env.runPath, env.run, [{ id: 'RFC-1', option: 'A', answer: 'a' }, { id: 'RFC-2', option: 'Z', answer: 'z' }, { id: 'RFC-3', option: 'A', answer: 'a' }]).catch((e) => e);
+    assert.equal(err.message, "RFC-2.md § Options: no option Z\nthe answer to RFC-2 was refused, so none of this call's answers was recorded");
+    assert.equal(JSON.stringify(env.run), before);
+    assert.deepEqual(calls.map(([h, ctx]) => [h, ctx.question.id]), [['onAnswer', 'RFC-1'], ['onAnswer', 'RFC-2']]);
+
+    const answered = await answerQuestions(env.ctx, env.runPath, env.run, [{ id: 'RFC-3', option: 'custom', answer: 'use the raw value' }, { id: 'RFC-1', option: 'A', answer: 'a' }]);
+    assert.deepEqual(answered.map((q) => [q.id, q.status, q.chosen, q.answer]), [['RFC-3', 'resolved', 'custom', 'use the raw value'], ['RFC-1', 'resolved', 'A', 'a']]);
+    assert.deepEqual(Object.entries(env.run.freezes).map(([f, x]) => [f, x.by]), [['RFC-3.md', 'RFC-3'], ['RFC-1.md', 'RFC-1']]);
 });
 
 test('gate entry refuses a pending question, runs the frozen artifacts\' guards with enter, and needs every frozen file', async () => {
@@ -156,7 +197,7 @@ test('gate entry refuses a pending question, runs the frozen artifacts\' guards 
     for (const f of ['EVID-discovery.md', 'plan.md']) env.write(f);
     await rejects(transition(env.ctx, env.runPath, env.run, 'gate1', { via: 'route' }), /Gate 1 needs every question answered; pending: RFC-1/);
     assert.equal(calls.filter(([h]) => h === 'guard').length, 0);
-    await answerQuestion(env.ctx, env.runPath, env.run, { id: 'RFC-1', option: 'A', answer: 'a' });
+    await answerQuestions(env.ctx, env.runPath, env.run, [{ id: 'RFC-1', option: 'A', answer: 'a' }]);
     await rejects(transition(env.ctx, env.runPath, env.run, 'gate1', { via: 'route' }), /^Error: Gate 1 freezes diff.md, and the run folder holds none$/);
     const guards = calls.filter(([h]) => h === 'guard');
     assert.deepEqual(guards.map(([, path, ctx]) => [path, ctx.event]), [[join(env.dir, 'runs/a/EVID-discovery.md'), 'enter'], [join(env.dir, 'runs/a/plan.md'), 'enter']]);
@@ -180,7 +221,7 @@ test('a pending question refuses every move out of the initial state but blocked
     await rejects(transition(env.ctx, env.runPath, run, 'gate1', { via: 'route' }), /^Error: leaving plan needs every question answered; pending: RFC-1$/);
     await rejects(transition(env.ctx, env.runPath, run, 'gate1', { via: 'action' }), /leaving plan needs every question answered/);
     assert.equal(run.status, 'plan');
-    await answerQuestion(env.ctx, env.runPath, run, { id: 'RFC-1', option: 'A', answer: 'a' });
+    await answerQuestions(env.ctx, env.runPath, run, [{ id: 'RFC-1', option: 'A', answer: 'a' }]);
     await transition(env.ctx, env.runPath, run, 'gate1', { via: 'route' });
     assert.equal(run.status, 'gate1');
 
@@ -237,7 +278,7 @@ test('a human transition takes only the compiled human edges, with a note, and d
     const env = await started();
     env.write('RFC-1.md');
     scanQuestions(env.ctx, env.runPath, env.run);
-    await answerQuestion(env.ctx, env.runPath, env.run, { id: 'RFC-1', option: 'A', answer: 'a' });
+    await answerQuestions(env.ctx, env.runPath, env.run, [{ id: 'RFC-1', option: 'A', answer: 'a' }]);
     for (const f of ['EVID-discovery.md', 'plan.md', 'diff.md']) env.write(f);
     await rejects(transition(env.ctx, env.runPath, env.run, 'gate1', { via: 'human', note: 'go' }), /plan → gate1 is not a human move; from plan a human transition goes to no state/);
     await transition(env.ctx, env.runPath, env.run, 'gate1', { via: 'route' });
@@ -278,8 +319,8 @@ test('a human move into the initial state re-freezes the answered questions, so 
     env.write('RFC-1.md');
     env.write('RFC-2.md');
     scanQuestions(env.ctx, env.runPath, env.run);
-    await answerQuestion(env.ctx, env.runPath, env.run, { id: 'RFC-1', option: 'A', answer: 'a' });
-    await answerQuestion(env.ctx, env.runPath, env.run, { id: 'RFC-2', option: 'A', answer: 'a' });
+    await answerQuestions(env.ctx, env.runPath, env.run, [{ id: 'RFC-1', option: 'A', answer: 'a' }]);
+    await answerQuestions(env.ctx, env.runPath, env.run, [{ id: 'RFC-2', option: 'A', answer: 'a' }]);
     for (const f of ['EVID-discovery.md', 'plan.md', 'diff.md']) env.write(f);
     await transition(env.ctx, env.runPath, env.run, 'gate1', { via: 'route' });
     await approve(env.ctx, env.runPath, env.run, 'gate1');

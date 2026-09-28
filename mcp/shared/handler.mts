@@ -12,7 +12,10 @@ export interface Prop {
     description?: string;
     enum?: readonly string[];
     items?: Prop;
-    additionalProperties?: Prop;
+    /** An object's named keys: each key in `required` must be there, and a key `properties` doesn't name is refused. */
+    properties?: Record<string, Prop>;
+    required?: readonly string[];
+    additionalProperties?: Prop | false;
 }
 
 export interface ToolSchema {
@@ -44,21 +47,22 @@ export function flags(params: Params, skip: string[] = []): string[] {
 
 const typeOf = (v: unknown) => (Array.isArray(v) ? 'array' : v === null ? 'null' : typeof v);
 
-/** The errors of one value against its property: the wrong type, a value outside the enum, or a bad item. */
+/** The errors of one value against its property: the wrong type, a value outside the enum, a bad item, or a bad key. */
 function check(v: unknown, p: Prop, at: string): string[] {
     if (p.type === 'integer') return Number.isInteger(v) && (v as number) >= (p.minimum ?? -Infinity) ? [] : [`${at} must be an integer${p.minimum == null ? '' : ` from ${p.minimum}`}`];
-    if (typeOf(v) !== p.type) return [`${at} must be ${p.type === 'array' ? 'an' : 'a'} ${p.type}`];
+    if (typeOf(v) !== p.type) return [`${at} must be ${p.type === 'array' || p.type === 'object' ? 'an' : 'a'} ${p.type}`];
     if (p.enum && !p.enum.includes(v as string)) return [`${at} must be one of ${p.enum.join(', ')}`];
     if (p.items) return (v as unknown[]).flatMap((x, i) => check(x, p.items!, `${at}[${i}]`));
-    if (p.additionalProperties) return Object.entries(v as object).flatMap(([k, x]) => check(x, p.additionalProperties!, `${at}.${k}`));
+    if (p.properties) return invalid(p, v as Params, `${at}.`);
+    if (p.additionalProperties) return Object.entries(v as object).flatMap(([k, x]) => check(x, p.additionalProperties as Prop, `${at}.${k}`));
     return [];
 }
 
-/** The errors of the arguments against a tool's input schema: a missing required argument, an unknown one, or a bad value. */
-function invalid({ properties, required = [] }: ToolSchema['inputSchema'], params: Params): string[] {
+/** The errors of the arguments, or of an object's keys under `at`, against their properties: a missing required one, an unknown one, or a bad value. */
+function invalid({ properties = {}, required = [] }: Pick<Prop, 'properties' | 'required'>, params: Params, at = ''): string[] {
     return [
-        ...required.filter((k) => params[k] == null).map((k) => `${k} is required`),
-        ...Object.entries(params).flatMap(([k, v]) => (properties[k] ? check(v, properties[k], k) : [`unknown argument ${k}`])),
+        ...required.filter((k) => params[k] == null).map((k) => `${at}${k} is required`),
+        ...Object.entries(params).flatMap(([k, v]) => (properties[k] ? check(v, properties[k], `${at}${k}`) : [`unknown argument ${at}${k}`])),
     ];
 }
 

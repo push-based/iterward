@@ -2,8 +2,8 @@
  * node --test bin.spec.mts
  *
  * Proves the CLI's contract: exit codes, the preflight's refusal and warnings, `next` and `result` saving the
- * run, `validate`'s grouped lines and their spill file, `compile`, and the run's hold on its loop file and
- * hook modules.
+ * run, `validate`'s grouped lines and their spill file, `answer`'s two forms and its all-or-none list, `compile`,
+ * and the run's hold on its loop file and hook modules.
  */
 
 import assert from 'node:assert/strict';
@@ -12,7 +12,7 @@ import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 
-import { BIN, makeLoop, runPath, startedRun } from './mcp/spec/fixtures.mts';
+import { askedRun, BIN, makeLoop, runPath, startedRun } from './mcp/spec/fixtures.mts';
 
 const cli = (...args: string[]) => spawnSync(process.execPath, [BIN, ...args], { encoding: 'utf8' });
 const json = (res: { stdout: string }) => JSON.parse(res.stdout);
@@ -69,6 +69,23 @@ test('validate prints ok, or the grouped lines with exit 2; past 20,000 characte
     doc(run, 'verdict.10.md', 'upheld');
     writeFileSync(join(dirname(run), 'errors.txt'), '');
     assert.equal(cli('validate', 'verdict', '--run', run).stdout, 'ok\n');
+});
+
+test('answer records a JSON list all or none, and keeps the single form; both forms, neither, or a malformed list is a usage error', () => {
+    const run = askedRun('RFC-1', 'RFC-2', 'RFC-3');
+    const answers = (...list: object[]) => cli('answer', '--run', run, '--answers', JSON.stringify(list));
+    const bytes = readFileSync(run);
+    const refused = answers({ id: 'RFC-9', option: 'A', answer: 'a' }, { id: 'RFC-2', option: 'B', answer: ' ' }, { id: 'RFC-2', option: 'B', answer: 'b' });
+    assert.deepEqual([refused.status, refused.stderr], [2, "RFC-9:\n  - isn't in the ledger, which holds RFC-1, RFC-2, RFC-3\nRFC-2:\n  - needs the human's words as its answer, verbatim\n  - appears more than once\n"]);
+    // The hook accepts RFC-1 and refuses RFC-2, so the run file stays byte for byte as it was.
+    const midway = answers({ id: 'RFC-1', option: 'A', answer: 'a' }, { id: 'RFC-2', option: 'Z', answer: 'z' });
+    assert.deepEqual([midway.status, midway.stderr], [2, "RFC-2.md § Options:\n  - no option Z\nother:\n  - the answer to RFC-2 was refused, so none of this call's answers was recorded\n"]);
+    assert.deepEqual(readFileSync(run), bytes);
+    for (const args of [[], ['--answers', '[]'], ['--answers', 'RFC-1: A'], ['--answers', '[{"id":"RFC-1"}]', '--id', 'RFC-1'], ['--id', 'RFC-1', '--option', 'A']]) {
+        assert.equal(cli('answer', '--run', run, ...args).status, 1, args.join(' '));
+    }
+    assert.deepEqual(JSON.parse(answers({ id: 'RFC-1', option: 'A', answer: 'a' }, { id: 'RFC-2', option: 'custom', answer: "the human's own words" }).stdout), { ok: true, answered: [{ id: 'RFC-1', chosen: 'A' }, { id: 'RFC-2', chosen: 'custom' }], pending: ['RFC-3'] });
+    assert.deepEqual(json(cli('answer', '--run', run, '--id', 'RFC-3', '--option', 'B', '--answer', 'b')), { ok: true, answered: [{ id: 'RFC-3', chosen: 'B' }], pending: [] });
 });
 
 test('a changed hook module, or a module it imports, refuses every command of a started run', () => {

@@ -10,7 +10,7 @@ A loop is one JSON file, and its hooks are named exports of ES modules beside it
 - `questions`: optional. A question file's name in the run folder, with `{n}`, such as `"Q-{n}.md"`. Questions exist only at the initial state.
 - `preflight`: optional. The hook that runs on `new`, before the run exists.
 - `result`: the hook that reads a dispatch's status from its document.
-- `onAnswer`: optional. The hook that writes the human's answer into the question file.
+- `onAnswer`: optional. The hook that writes the human's answer into the question file. It runs once for each answer of an `answer` call.
 - `artifacts`: the files the dispatches write, as the section "Artifacts" describes.
 - `stages`: the loop's stages, in order, as the section "Stages" describes.
 - `validators`: optional. One hook per state, which runs on every transition into that state.
@@ -103,7 +103,7 @@ A blocked run's human edges are the resume edge into the state it blocked from, 
 | An artifact's `guard` | `Guard` | The file's path, `event`, and the dispatch and status when there is one | Error lines; an empty list accepts |
 | A state's validator | `Validator` | `from`, `to`, `human`, and the dispatch when there is one | Error lines; an empty list accepts |
 | `route` | `Route` | The context | `{ dispatch, with? }`, or `{ gate, onRefusal }` |
-| `onAnswer` | `OnAnswer` | The question's id and file, the option key or `custom`, and the human's words | Nothing; a throw refuses the answer |
+| `onAnswer` | `OnAnswer` | The question's id and file, the option key or `custom`, and the human's words | Nothing; a throw refuses the whole `answer` call, and the engine doesn't undo the hook's writes for the call's earlier answers |
 | A gate's `summary` | `GateSummary` | The gate's name | The lines the gate stop shows |
 
 A guard's `event` says why it runs: `validate` for the `validate` command, `result` for a dispatch's outcome, `enter` for a transition into the freezing gate, and `approve` for that gate's approval.

@@ -44,11 +44,11 @@ Done when: <!-- TODO -->
 
 ## Stops
 
-Every stop carries `moves`, the human's moves from the current state with the effect of each. Show `moves` and `warnings` word for word, and run only a move the human chose, with the human's words. The shell asks the human to allow each `answer`, `gate`, and `transition`.
+Every stop carries `moves`, the human's moves from the current state. Each line names the human's action, the command that records it, and what happens. Show `moves` and `warnings` word for word, and run only a move the human chose, with the human's words. The shell asks the human to allow each `answer`, `gate`, and `transition`.
 
 ### questions
 
-Read each file under `questions`, and show it whole. Command: `answer --run <RUN> --id <ID> --option <KEY|custom> --answer '<WORDS>'`.
+Read each file under `questions`, and show it whole. Record every answer of one human reply in one command, so the shell asks the human once: `answer --run <RUN> --answers '<ANSWERS>'`. `<ANSWERS>` is a JSON array with one object for each question the human answered: `{"id": "<ID>", "option": "<KEY|custom>", "answer": "<WORDS>"}`.
 
 <!-- TODO: how to sort the human's reply -->
 

@@ -99,8 +99,8 @@ The engine checks the run file on every call. These rules hold for every loop:
 
 - **Valid transitions.** A run moves only along the states its stages compile to, and a state's validator runs on every transition into it.
 - **Gate approvals and freezes.** A run leaves a gate forward only after a human approves it. The approval freezes the files the gate names. A changed frozen file stops the run until a human moves it back past the gate, which drops the freeze.
-- **One human edge set per state.** A human moves with `transition` only along the human edges the compiler gives the current state, and every stop lists those moves with the effect of each.
-- **Question freezes at `answer`.** An answer runs the loop's `onAnswer` hook, then freezes the question file.
+- **One human edge set per state.** A human moves with `transition` only along the human edges the compiler gives the current state. Every stop lists the human's moves, each as the human's action, the call that records it, and what happens.
+- **Answers, all or none.** An `answer` call records all of its answers or none of them. For each answer, the call runs the loop's `onAnswer` hook, then freezes the question file.
 - **Bounded re-dispatches.** The CLI re-dispatches an unusable or refused result with the reason, and parks the run for a human past a limit.
 
 For every rule and the terms it uses, see [Protocol rules](docs/protocol.md).

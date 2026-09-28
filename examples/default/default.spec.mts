@@ -34,7 +34,7 @@ test('the default loop takes a run from plan to done', () => {
     const asked = cli('result');
     assert.deepEqual([asked.stop, asked.questions], ['questions', [{ id: 'Q-1', file: join(dir, 'Q-1.md') }]]);
     assert.deepEqual(asked.moves, ["`answer` Q-1 with an option key or `custom`, and the human's words: resolves Q-1 and freezes Q-1.md."]);
-    assert.deepEqual(cli('answer', '--id', 'Q-1', '--option', 'A', '--answer', 'One page.'), { ok: true, id: 'Q-1', chosen: 'A', pending: [] });
+    assert.deepEqual(cli('answer', '--id', 'Q-1', '--option', 'A', '--answer', 'One page.'), { ok: true, answered: [{ id: 'Q-1', chosen: 'A' }], pending: [] });
     assert.match(readFileSync(join(dir, 'Q-1.md'), 'utf8'), /^---\nid: Q-1\nstatus: resolved\nchosen: A\nanswer: "One page."\n---\n\nWhich layout\?/);
 
     assert.equal(cli('next').agent, 'planner');

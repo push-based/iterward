@@ -17,7 +17,7 @@ export interface LoopFile {
     preflight?: HookRef;
     /** Reads a dispatch's status from the document the dispatch declares. */
     result: HookRef;
-    /** Runs at `answer`, before the engine records the answer and freezes the question file. */
+    /** Runs at `answer`, once for each answer of the call, before the engine freezes the question file and records the answer. */
     onAnswer?: HookRef;
     /** `file` is a plain file name in the run folder; it can hold {attempt}. */
     artifacts: Record<string, { file: string; guard?: HookRef }>;
@@ -83,7 +83,10 @@ export type Validator = (ctx: HookContext & { from: string; to: string; human: b
 /** The plan stage's route: the next dispatch, with values for its message, or the gate to enter. */
 export type Route = (ctx: HookContext) => Awaitable<{ dispatch: string; with?: Record<string, string> } | { gate: string; onRefusal: string }>;
 
-/** Writes the human's answer into the question file. A throw refuses the answer and records nothing. */
+/**
+ * Writes the human's answer into the question file. A throw refuses the whole `answer` call, and the run records
+ * none of its answers. The engine doesn't undo what the hook wrote for the call's earlier answers.
+ */
 export type OnAnswer = (ctx: HookContext & { question: { id: string; file: string }; option: string; answer: string }) => Awaitable<void>;
 
 /** Lines the gate stop shows before the human decides. */

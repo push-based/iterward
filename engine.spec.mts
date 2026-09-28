@@ -65,10 +65,10 @@ test('stops: each kind prints its fields and its moves; warnings show while Gate
     assert.deepEqual([questions.warnings, questions.recorded], [warnings, []]);
     assert.deepEqual(questions.since.map((d: any) => [d.id, d.name, d.agent, d.attempt, d.outcome]), [[1, 'discovery', 'l2-discovery', 1, 'ok'], [2, 'draft', 'l2-planner', 1, 'needs-decisions']]);
 
-    await env.L.answerQuestion(env.runPath, env.run, { id: 'RFC-1', option: 'A', answer: 'keep the purpose values' });
+    await env.L.answerQuestions(env.runPath, env.run, [{ id: 'RFC-1', option: 'A', answer: 'keep the purpose values' }]);
     const repeated = await env.next();
     assert.deepEqual([repeated.questions.map((q: any) => q.id), repeated.since, repeated.recorded], [['RFC-2'], questions.since, ['answer RFC-1 A: "keep the purpose values"']]);
-    await env.L.answerQuestion(env.runPath, env.run, { id: 'RFC-2', option: 'custom', answer: 'use the raw value' });
+    await env.L.answerQuestions(env.runPath, env.run, [{ id: 'RFC-2', option: 'custom', answer: 'use the raw value' }]);
     await tick();
 
     assert.equal((await env.next()).agent, 'l2-planner');
@@ -154,7 +154,8 @@ test('show prints only the run\'s state', async () => {
 test('the engine holds no consumer vocabulary', () => {
     const dir = dirname(fileURLToPath(import.meta.url));
     // Specs and their fixtures under spec/ may name a consumer; the engine, the CLI, the server, and the docs may not.
-    const files = readdirSync(dir, { recursive: true }).map(String).filter((f) => /\.m?ts$|\.md$|\.json$/.test(f) && !f.endsWith('.spec.mts') && !f.split('/').includes('spec'));
+    // The installed dev dependencies in node_modules/ aren't the repository's own files.
+    const files = readdirSync(dir, { recursive: true }).map(String).filter((f) => /\.m?ts$|\.md$|\.json$/.test(f) && !f.endsWith('.spec.mts') && !f.split('/').some((d) => d === 'spec' || d === 'node_modules'));
     const words = /\bfds\b|themepark|brand|\btokens?\b|scss|kiro|\b[lL][123]\b/;
     const hits = files.flatMap((f) => readFileSync(join(dir, f), 'utf8').split('\n').map((l, i) => (words.test(l) ? `${f}:${i + 1}: ${l.trim()}` : null)).filter(Boolean));
     assert.deepEqual(hits, []);
