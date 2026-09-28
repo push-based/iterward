@@ -46,4 +46,4 @@ A tool returns the command's output as text. A refusal returns an error result w
 
 The server handles one request at a time, so two tool calls on one run never interleave their reads and writes of the run file.
 
-Set the client's request timeout above the longest hook. A `result` or a `transition` waits for every guard and validator it runs. The server doesn't cancel a command, so a call the client gave up on still finishes and changes the run.
+Set the client's request timeout above the longest hook. A `result` or a `transition` waits for every guard and `onEnter` hook it runs. The server doesn't cancel a command, so a call the client gave up on still finishes and changes the run.

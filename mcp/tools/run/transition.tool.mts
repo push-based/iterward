@@ -4,7 +4,7 @@ import { ANNOTATIONS, COMMON } from '../../shared/schema.mts';
 const schema: ToolSchema = {
     name: 'transition',
     description:
-        "Moves the run along one of the human's moves that the stop lists, with the human's note. Call it only with the human's own decision. A move back past a gate drops the gate's freeze.",
+        "Moves the run along one of the human's moves that the stop lists, with the human's note. Call it only with the human's own decision. A move into a step that writes a frozen file drops the freeze of the gate that froze it.",
     inputSchema: {
         type: 'object',
         properties: {

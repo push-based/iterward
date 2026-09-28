@@ -4,7 +4,7 @@ import { ANNOTATIONS, COMMON } from '../../shared/schema.mts';
 const schema: ToolSchema = {
     name: 'gate',
     description:
-        "Records the human's approval or rejection of a gate. Call it only with the human's own decision. An approval freezes the gate's files and moves the run on; a rejection needs the human's note and moves the run back. Returns the stored note, so the orchestrator quotes what the run holds.",
+        "Records the human's approval or rejection of a gate. Call it only with the human's own decision. An approval freezes the gate's files and moves the run on; a rejection needs the human's note and moves the run to the step that revises. Returns the stored note, so the orchestrator quotes what the run holds.",
     inputSchema: {
         type: 'object',
         properties: {

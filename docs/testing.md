@@ -38,7 +38,7 @@ test('a gate rejection sends the human note to the planner', async () => {
 });
 ```
 
-A document must be written after its dispatch opens, because `result` refuses an older file. To test a loop through the CLI, as a harness drives it, see `examples/default/default.spec.mts`. To test what a loop's stages compile to, assert on the `LoopConfig` that `loadLoop` returns. `inferredOf(config)` returns the pointer of each value the compiler inferred, as `looplock compile` prints them.
+A document must be written after its dispatch opens, because `result` refuses an older file. To test a loop through the CLI, as a harness drives it, see `examples/default/default.spec.mts`. To test what a loop file compiles to, assert on the `LoopConfig` that `loadLoop` returns: each step's `outcomes` hold the targets `machine` resolves to, a `*` key included.
 
 ## Run the engine's tests
 

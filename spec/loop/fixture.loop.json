@@ -1,68 +1,43 @@
 {
   "name": "fixture",
   "inputs": { "required": ["subject"], "optional": ["design"] },
-  "questions": "Q-{n}.md",
-  "preflight": { "module": "./hooks.mts", "export": "preflight" },
-  "result": { "module": "./hooks.mts", "export": "readResult" },
-  "onAnswer": { "module": "./hooks.mts", "export": "onAnswer" },
+  "preflight": "./hooks.mts#preflight",
+  "questions": { "file": "Q-{n}.md", "onAnswer": "./hooks.mts#onAnswer" },
   "artifacts": {
-    "discovery": { "file": "notes.md", "guard": { "module": "./hooks.mts", "export": "guard" } },
-    "plan": { "file": "plan.md", "guard": { "module": "./hooks.mts", "export": "guard" } },
+    "notes": { "file": "notes.md", "guard": "./hooks.mts#guard" },
+    "plan": { "file": "plan.md", "guard": "./hooks.mts#planGuard" },
     "diff": { "file": "diff.md" },
-    "summary": { "file": "summary.md", "guard": { "module": "./hooks.mts", "export": "summaryGuard" } },
-    "verdict": { "file": "verdict.{attempt}.md", "guard": { "module": "./hooks.mts", "export": "guard" } },
-    "build-report": { "file": "build.{attempt}.report.md", "guard": { "module": "./hooks.mts", "export": "guard" } },
-    "verify-report": { "file": "verify-build.{attempt}.report.md", "guard": { "module": "./hooks.mts", "export": "guard" } }
+    "build-report": { "file": "build.{attempt}.report.md", "guard": "./hooks.mts#guard" },
+    "verify-report": { "file": "verify-build.{attempt}.report.md", "guard": "./hooks.mts#guard" }
   },
-  "stages": [
-    {
-      "plan": "plan",
-      "route": { "module": "./hooks.mts", "export": "route" },
-      "dispatches": {
-        "discovery": {
-          "agent": "scout", "artifact": "discovery",
-          "message": "Discovery mode. Subject: {subject}. Design: {design}. Run: {runPath}.",
-          "outcomes": { "ok": { "route": true }, "blocked": { "park": true } }
-        },
-        "draft": {
-          "agent": "planner", "artifact": "plan",
-          "message": "Draft mode. Run: {runPath}.",
-          "outcomes": { "ok": { "route": true }, "needs-decisions": { "ask": true }, "blocked": { "park": true } }
-        },
-        "revision": {
-          "agent": "planner", "artifact": "plan",
-          "message": "Revision mode. Run: {runPath}. Note: '{note}'.",
-          "outcomes": { "ok": { "route": true }, "needs-decisions": { "ask": true }, "blocked": { "park": true } }
-        },
-        "judge": {
-          "agent": "judge", "artifact": "verdict",
-          "message": "Judge dispute {dispute}. Run: {runPath}. Verdict: {document}.",
-          "outcomes": { "upheld": { "route": true }, "rejected": { "route": true }, "unsure": { "route": true } }
-        }
-      }
-    },
-    { "gate": "gate", "label": "Gate", "freezes": ["discovery", "plan", "diff", "summary"] },
-    {
-      "work": "build",
-      "dispatch": {
-        "agent": "builder", "artifact": "build-report",
-        "message": "Run: {runPath}. Report: {document}. Note: '{note}'.",
-        "outcomes": { "plan-invalidated": { "park": true } }
-      }
-    },
-    {
-      "verify": "verify-build",
-      "dispatch": {
-        "agent": "verifier", "artifact": "verify-report",
-        "message": "Run: {runPath}. Report: {document}.",
-        "outcomes": { "plan-invalidated": { "park": true } }
-      },
-      "maxFailed": 3
-    },
-    { "stop": "release" }
-  ],
-  "validators": {
-    "verify-build": { "module": "./hooks.mts", "export": "validator" },
-    "release": { "module": "./hooks.mts", "export": "validator" }
-  }
+  "steps": {
+    "discovery": { "agent": "scout", "writes": "notes", "outcomes": ["ok", "blocked"] },
+    "supplement": { "agent": "scout", "writes": "notes", "outcomes": ["ok", "blocked"] },
+    "draft": { "agent": "planner", "writes": "plan", "outcomes": ["ok", "needs-decisions", "needs-evidence", "blocked"] },
+    "revision": { "agent": "planner", "writes": "plan", "outcomes": ["ok", "needs-decisions", "needs-evidence", "blocked"] },
+    "build": { "agent": "builder", "writes": "build-report", "outcomes": ["ok", "plan-invalidated", "blocked"] },
+    "verify-build": { "agent": "verifier", "writes": "verify-report", "outcomes": ["pass", "fail", "plan-invalidated", "blocked"], "onEnter": "./hooks.mts#onEnter" }
+  },
+  "gates": { "gate": { "label": "Gate", "freezes": ["notes", "plan", "diff"] } },
+  "stops": { "release": { "onEnter": "./hooks.mts#onEnter" } },
+  "machine": {
+    "start": "discovery",
+    "discovery.ok": "draft",
+    "supplement.ok": "revision",
+    "draft.ok": "gate",
+    "revision.ok": "gate",
+    "draft.needs-decisions": { "ask": "revision" },
+    "revision.needs-decisions": { "ask": "revision" },
+    "draft.needs-evidence": "supplement",
+    "revision.needs-evidence": "supplement",
+    "gate.approve": "build",
+    "gate.reject": "revision",
+    "build.ok": "verify-build",
+    "verify-build.pass": "release",
+    "verify-build.fail": "build",
+    "*.blocked": "park",
+    "*.plan-invalidated": "park"
+  },
+  "human": { "build": ["revision"], "verify-build": ["revision", "build"], "release": ["revision", "build"] },
+  "limits": { "opens": 3 }
 }

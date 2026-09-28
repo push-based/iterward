@@ -3,7 +3,7 @@ import type { Ctx } from '../context.mts';
 import { hasText } from '../util.mts';
 
 /**
- * A fresh run at the initial state, which the caller saves. The loop's preflight runs first: an error refuses
+ * A fresh run at the loop's first step, which the caller saves. The loop's preflight runs first: an error refuses
  * the run, so nothing is written, and each warning is kept with its reason. `configPath` is the loop file as
  * the command received it.
  */
@@ -16,13 +16,12 @@ export async function newRun({ cfg }: Ctx, runPath: string, inputs: Record<strin
     return {
         config: { path: configPath, sha256: cfg.sha256 },
         inputs: kept,
-        status: cfg.initial,
+        status: cfg.start,
         warnings: [...warnings],
         gates: {},
         history: [],
         freezes: {},
         questions: [],
         dispatches: [],
-        streak: { refusals: 0, unusable: 0 },
     };
 }

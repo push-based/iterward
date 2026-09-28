@@ -1,10 +1,10 @@
 import type { Run } from '../../config.mts';
 import type { Ctx } from '../context.mts';
 import { openDispatch } from '../dispatch/internal/open-dispatch.mts';
-import { failedSince } from './internal/failed-since.mts';
+import { sinceHuman } from './internal/since-human.mts';
 
 /** The run's state, and nothing a document holds: the orchestrator reads documents itself. */
-export function show(ctx: Ctx, run: Run) {
+export function show(_ctx: Ctx, run: Run) {
     const o = openDispatch(run);
     return {
         status: run.status,
@@ -14,7 +14,7 @@ export function show(ctx: Ctx, run: Run) {
         questions: run.questions.map((q) => ({ id: q.id, status: q.status, ...(q.chosen ? { chosen: q.chosen } : {}) })),
         freezes: Object.fromEntries(Object.entries(run.freezes).map(([file, f]) => [file, f.by])),
         warnings: run.warnings,
-        failed: failedSince(ctx, run),
+        opens: sinceHuman(run).filter((d) => d.name === (run.blockedFrom ?? run.status)).length,
         dispatches: run.dispatches.length,
         open: o ? { id: o.id, agent: o.agent, document: o.document } : null,
     };

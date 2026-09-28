@@ -4,6 +4,7 @@ import type { Dispatch, Run } from '../../../config.mts';
 import type { Ctx } from '../../context.mts';
 import { group, SPILL_OVER, spillFile } from '../../spill.mts';
 import { now } from '../../util.mts';
+import { lastHumanAt } from '../../views/internal/since-human.mts';
 import { dispatchOut } from './dispatch-out.mts';
 
 /**
@@ -15,28 +16,35 @@ export function listed(runPath: string, name: string, lines: string[], lead: str
     return text.length <= SPILL_OVER ? `${lead}\n${text}` : `${lead} ${lines.length} errors, listed in ${spillFile(dirname(runPath), name, text)}.`;
 }
 
+/** Continuation lines indented, so a multi-line value stays one field of the message. */
+const indent = (text: string) => text.replaceAll('\n', '\n  ');
+
 /**
- * Open a dispatch: its message template filled, then, on a re-dispatch, the `Fixes:` it must make. `with` holds
- * the values the route supplied, and a re-dispatch keeps them. A placeholder with no value refuses the open.
+ * Open a step with the standard message: the step, the run file, the document to write, the inputs, the human's
+ * latest note, and the lines to fix. `{attempt}` counts the dispatches that wrote the same artifact. The note is
+ * the latest human move's after the step last opened, so a later open never re-applies an old note. The fixes
+ * are the step's own previous dispatch's, unless a human moved since.
  */
-export function open(ctx: Ctx, runPath: string, run: Run, name: string, o: { with?: Record<string, string>; fixes?: string[] } = {}) {
+export function open(ctx: Ctx, runPath: string, run: Run, name: string) {
     const { cfg } = ctx;
-    const spec = cfg.dispatches[name];
-    if (!spec) throw new Error(`the loop has no dispatch ${name}`);
-    const earlier = run.dispatches.filter((d) => d.name === name);
-    const attempt = earlier.length + 1;
-    const document = join(dirname(runPath), cfg.artifacts[spec.artifact].file.replaceAll('{attempt}', String(attempt)));
-    // The note of the latest human move after this dispatch last opened, so a later dispatch never re-applies an old note.
-    const since = earlier.at(-1)?.openedAt ?? '';
-    const note = run.history.findLast((h) => h.human && h.at > since)?.note ?? '';
-    const inputs = Object.fromEntries([...cfg.inputs.required, ...(cfg.inputs.optional ?? [])].map((k) => [k, run.inputs[k] ?? 'none']));
-    const values: Record<string, string> = { ...o.with, ...inputs, runPath, attempt: String(attempt), document, note };
-    const message = spec.message.replace(/\{([^{}]*)\}/g, (_, p: string) => {
-        if (!Object.hasOwn(values, p)) throw new Error(`the ${name} message names {${p}}, and nothing gives it a value`);
-        return values[p];
-    });
-    const fixes = o.fixes?.length ? `\n${listed(runPath, `${name}-fixes`, o.fixes, 'Fixes:')}` : '';
-    const d: Dispatch = { id: run.dispatches.length + 1, name, agent: spec.agent, attempt, document, message: `${message}${fixes}`, openedAt: now(), ...(o.with ? { with: o.with } : {}) };
+    const step = cfg.steps[name];
+    if (!step) throw new Error(`the loop has no step ${name}`);
+    const attempt = run.dispatches.filter((d) => cfg.steps[d.name]?.writes === step.writes).length + 1;
+    const document = join(dirname(runPath), cfg.artifacts[step.writes].file.replaceAll('{attempt}', String(attempt)));
+    const since = run.dispatches.findLast((d) => d.name === name)?.openedAt ?? '';
+    const note = run.history.findLast((h) => h.human && h.at > since)?.note;
+    const last = run.dispatches.at(-1);
+    const fixes = last?.name === name && last.openedAt >= lastHumanAt(run) ? (last.fixes ?? []) : [];
+    const inputs = [...cfg.inputs.required, ...(cfg.inputs.optional ?? [])].map((k) => `\n  ${k}: ${indent(run.inputs[k] ?? 'none')}`).join('');
+    const message = [
+        `Step: ${name}`,
+        `Run: ${runPath}`,
+        `Document: ${document}`,
+        `Inputs:${inputs || ' none'}`,
+        `Note: ${note ? indent(note) : 'none'}`,
+        fixes.length ? listed(runPath, `${name}-fixes`, fixes, 'Fixes:') : 'Fixes: none',
+    ].join('\n');
+    const d: Dispatch = { id: run.dispatches.length + 1, name, agent: step.agent, attempt, document, message, openedAt: now() };
     run.dispatches.push(d);
     return dispatchOut(d);
 }

@@ -5,48 +5,34 @@
  * every path to a hook.
  */
 
-/** A hook: a named export of an ES module, the module path relative to the loop file. */
-export interface HookRef { module: string; export: string }
+/** A hook: `"<file>#<export>"`, a named export of an ES module, the file relative to the loop file. */
+export type HookRef = string;
+
+/** Where an outcome leads: a step, a gate, a stop, `park`, or the questions and then a step. */
+export type Target = string | { ask: string };
 
 export interface LoopFile {
     name: string;
     inputs: { required: string[]; optional?: string[] };
-    /** A question's file name in the run folder, with {n}, such as "Q-{n}.md". Questions exist only at the initial state. */
-    questions?: string;
     /** Runs on `new`, before the run exists. */
     preflight?: HookRef;
-    /** Reads a dispatch's status from the document the dispatch declares. */
-    result: HookRef;
-    /** Runs at `answer`, once for each answer of the call, before the engine freezes the question file and records the answer. */
-    onAnswer?: HookRef;
-    /** `file` is a plain file name in the run folder; it can hold {attempt}. */
+    /** `file` is a question's file name in the run folder, with {n}, such as "Q-{n}.md". `onAnswer` runs at `answer`, once for each answer of the call. */
+    questions?: { file: string; onAnswer?: HookRef };
+    /** `file` is a plain file name in the run folder; it can hold {attempt}. The guard belongs to the document. */
     artifacts: Record<string, { file: string; guard?: HookRef }>;
-    stages: StageDef[];
-    /** One validator per state, run on every transition into that state. */
-    validators?: Record<string, HookRef>;
-    limits?: { redispatch?: number; unusable?: number };
+    /** Each step: the agent it opens, the artifact it writes, the statuses its guard can return, and its entry check. */
+    steps: Record<string, { agent: string; writes: string; outcomes: string[]; onEnter?: HookRef }>;
+    /** Each gate: its label, the artifacts its approval freezes, and its entry check. */
+    gates?: Record<string, { label: string; freezes?: string[]; onEnter?: HookRef }>;
+    /** Each state where the run waits for a human with no agent to open. */
+    stops?: Record<string, { onEnter?: HookRef }>;
+    /** `"start"`, and `"<step>.<outcome>"`, `"*.<outcome>"`, `"<gate>.approve"`, or `"<gate>.reject"`, each to its target. */
+    machine: Record<string, Target>;
+    /** The states a human can move each step or stop to with `transition`. */
+    human?: Record<string, string[]>;
+    /** `opens`: how many times a step opens since the last human move before the run parks; 3 when left out. */
+    limits?: { opens?: number };
 }
-
-/** One stage of a loop. The key that names the kind also names the state; every target a stage leaves out is inferred. */
-export type StageDef =
-    | { plan: string; route: HookRef; dispatches: Record<string, DispatchDef>; next?: string | string[] }
-    | { gate: string; label: string; next?: string; back?: string; freezes?: string[] }
-    | { work: string; dispatch: DispatchDef }
-    | { verify: string; dispatch: DispatchDef; pass?: string; fail?: string; maxFailed?: number }
-    | { stop: string }
-    | { end: string };
-
-export interface DispatchDef {
-    agent: string;
-    /** The artifact whose file the dispatch writes: its document. */
-    artifact: string;
-    /** A template: {runPath}, {attempt}, {document}, {note}, an input, or a value the route supplies. */
-    message: string;
-    /** Merged over the stage kind's default outcomes; null removes a default. */
-    outcomes?: Record<string, Action | null>;
-}
-
-export type Action = { transition: string } | { route: true } | { ask: true } | { park: true };
 
 // ---- Hooks. A hook can return a value or a promise, and the engine awaits it. A hook must not change the run.
 
@@ -67,21 +53,15 @@ export interface DispatchInfo { id: number; name: string; agent: string; attempt
 /** Runs on `new`. An error refuses the run; each warning is stored in run.json with its reason. */
 export type Preflight = (ctx: { root: string; runPath: string; inputs: Record<string, string> }) => Awaitable<{ errors: string[]; warnings: string[] }>;
 
-/** Reads the step's status from the dispatch's document. An error makes the result unusable. */
-export type ResultHook = (path: string, ctx: HookContext & { dispatch: DispatchInfo }) => Awaitable<{ status: string } | { error: string }>;
-
 /**
- * An artifact's guard. `event` says why it runs: `validate` (the validate command), `result` (a dispatch's
- * non-park outcome), `enter` (a transition into the gate that freezes the artifact), or `approve` (that gate's
- * approval). It returns error lines; an empty list accepts.
+ * An artifact's guard. `event` says why it runs: `result` (the step that writes it closed), `enter` (a transition
+ * into the gate that freezes it), `approve` (that gate's approval), or `validate` (the validate command). It
+ * returns the document's status, which `machine` follows on `result`, or the error lines that refuse it.
  */
-export type Guard = (path: string, ctx: HookContext & { event: 'validate' | 'result' | 'enter' | 'approve'; dispatch?: DispatchInfo; status?: string }) => Awaitable<string[]>;
+export type Guard = (path: string, ctx: HookContext & { event: 'validate' | 'result' | 'enter' | 'approve'; dispatch?: DispatchInfo }) => Awaitable<{ status: string } | { errors: string[] }>;
 
-/** A state's entry validator: runs on every transition into `to`. */
-export type Validator = (ctx: HookContext & { from: string; to: string; human: boolean; dispatch?: DispatchInfo }) => Awaitable<string[]>;
-
-/** The plan stage's route: the next dispatch, with values for its message, or the gate to enter. */
-export type Route = (ctx: HookContext) => Awaitable<{ dispatch: string; with?: Record<string, string> } | { gate: string; onRefusal: string }>;
+/** A step's, gate's, or stop's entry check: runs on every transition into it, from an outcome or a human move. */
+export type OnEnter = (ctx: HookContext & { from: string; to: string; human: boolean; dispatch?: DispatchInfo }) => Awaitable<string[]>;
 
 /**
  * Writes the human's answer into the question file. A throw refuses the whole `answer` call, and the run records
@@ -105,61 +85,40 @@ export interface Run {
     freezes: Record<string, { sha256: string; by: string; at: string }>;
     questions: Question[];
     dispatches: Dispatch[];
-    streak: { refusals: number; unusable: number };
-    /** The dispatch counts at the last two stops, so a repeated stop repeats itself. */
-    stopMark?: { from: number; to: number };
 }
 
 export interface GateEntry { decision: 'approved' | 'rejected'; note?: string; at: string; judged: Record<string, string> }
 
 export interface Question { id: string; file: string; status: 'pending' | 'resolved'; chosen?: string; answer?: string; askedAt: string; resolvedAt?: string }
 
+/** `outcome` is the guard's status, `refused`, or `unusable`; `fixes` are the lines the step's next open must fix. */
 export interface Dispatch {
     id: number; name: string; agent: string; attempt: number; document: string; message: string; openedAt: string;
-    with?: Record<string, string>; closedAt?: string; outcome?: string; note?: string;
+    closedAt?: string; outcome?: string; fixes?: string[];
 }
 
 // ---- The compiled loop, which the engine runs.
 
-/** A move a human can make with `transition`; `drops` names the gate whose freeze the move drops. */
-export interface HumanEdge { to: string; drops?: string; resets?: true; retries?: true }
+/** A step with each outcome's target resolved from `machine`, a `*` key included. */
+export interface StepConfig { agent: string; writes: string; outcomes: Record<string, Target>; onEnter?: OnEnter }
 
-export interface GateConfig { label: string; next: string; back: string; freezes: string[] }
-
-export interface DispatchConfig { agent: string; artifact: string; message: string; outcomes: Record<string, Action> }
-
-export interface Limits {
-    redispatch: number;
-    unusable: number;
-    /** From a verify stage's `maxFailed`: `max` failed verdicts of `stage` since the last human move into `at` park the run. */
-    failed?: { stage: string; at: string; max: number };
-}
+export interface GateConfig { label: string; freezes: string[]; approve: string; reject: string; onEnter?: OnEnter }
 
 export interface LoopConfig {
     name: string;
     inputs: { required: string[]; optional?: string[] };
     /** The question file pattern; its one capture group is `{n}`. */
     questions?: RegExp;
-    initial: string;
-    /** The agent, route, and gate edges of each state, and under `blocked` the states a run can resume. */
-    states: Record<string, string[]>;
-    /** The human edges of each stage; a blocked run's edges are computed at run time. */
-    human: Record<string, HumanEdge[]>;
-    gates: Record<string, GateConfig>;
-    /** The one gate that declares `freezes`. */
-    freezeGate?: string;
-    artifacts: Record<string, { file: string; guard?: Guard }>;
-    dispatches: Record<string, DispatchConfig>;
-    /** Each work and verify state's dispatch. */
-    byStatus: Record<string, string>;
-    route: Route;
-    result: ResultHook;
     onAnswer?: OnAnswer;
     preflight?: Preflight;
-    validators: Record<string, Validator>;
-    /** The stop and end states. */
-    stops: string[];
-    limits: Limits;
+    /** The first step. */
+    start: string;
+    artifacts: Record<string, { file: string; guard?: Guard }>;
+    steps: Record<string, StepConfig>;
+    gates: Record<string, GateConfig>;
+    stops: Record<string, { onEnter?: OnEnter }>;
+    human: Record<string, string[]>;
+    limits: { opens: number };
     /** The HookRef of every hook, by the JSON pointer of its place in this configuration. */
     hooks: Record<string, HookRef>;
     /** The configuration hash, over the loop file and every hook module with its local imports. */

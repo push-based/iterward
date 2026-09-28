@@ -16,20 +16,20 @@ export const BIN = fileURLToPath(new URL('../../bin.mts', import.meta.url));
 const FIXTURE = fileURLToPath(new URL('../../spec/loop/fixture.loop.json', import.meta.url));
 
 /**
- * The hooks: the result hook reads the frontmatter status, the route always dispatches discovery, `onAnswer`
- * refuses the option `Z`, the guard returns the lines of `errors.txt` in the run folder, the summary's guard writes
- * summary.md as the run enters the gate, and the preflight warns, and refuses the subject `bad`.
+ * The hooks: each guard returns the lines of `errors.txt` in the run folder as errors, or else the frontmatter
+ * status, `onAnswer` refuses the option `Z`, and the preflight warns, and refuses the subject `bad`.
  */
-const HOOKS = `import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+const HOOKS = `import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { statusOf } from './status.mjs';
-export const readResult = (path) => (statusOf(path) ? { status: statusOf(path) } : { error: path + ' § frontmatter: no status' });
-export const route = () => ({ dispatch: 'discovery' });
+export const guard = (path, { runDir }) => {
+    const errors = existsSync(join(runDir, 'errors.txt')) ? readFileSync(join(runDir, 'errors.txt'), 'utf8').split('\\n').filter(Boolean) : [];
+    return errors.length ? { errors } : statusOf(path) ? { status: statusOf(path) } : { errors: [path + ' § frontmatter: no status'] };
+};
+export const planGuard = guard;
 export const onAnswer = ({ question, option }) => { if (option === 'Z') throw new Error(question.id + '.md § Options: no option Z'); };
-export const guard = (path, { runDir }) => (existsSync(join(runDir, 'errors.txt')) ? readFileSync(join(runDir, 'errors.txt'), 'utf8').split('\\n').filter(Boolean) : []);
 export const preflight = ({ inputs }) => ({ errors: inputs.subject === 'bad' ? ['mcp.json § looplock: autoApprove lists gate'] : [], warnings: ['no linter'] });
-export const summaryGuard = (path, { event }) => (event === 'enter' && writeFileSync(path, '# Summary\\n'), []);
-export const validator = () => [];
+export const onEnter = () => [];
 `;
 const STATUS = "import { readFileSync } from 'node:fs';\nexport const statusOf = (path) => /^status:\\s*(\\S+)\\s*$/m.exec(readFileSync(path, 'utf8'))?.[1];\n";
 
@@ -45,14 +45,14 @@ export function makeLoop(): string {
 /** A run path in a fresh folder, with no run in it. */
 export const runPath = () => join(mkdtempSync(join(tmpdir(), 'looplock-mcp-')), 'run.json');
 
-/** A run of a fresh fixture loop at `plan`. */
+/** A run of a fresh fixture loop at its first step, `discovery`. */
 export function startedRun(): string {
     const run = runPath();
     assert.equal(spawnSync(process.execPath, [BIN, 'new', '--config', join(makeLoop(), 'loop.json'), '--run', run, '--subject', 'the progress bar']).status, 0);
     return run;
 }
 
-/** A run of a fresh fixture loop at `plan`, stopped on a pending question for each id, such as Q-1. */
+/** A run of a fresh fixture loop past `discovery`, stopped on a pending question for each id, such as Q-1, before `draft`. */
 export function askedRun(...ids: string[]): string {
     const run = startedRun();
     const cli = (cmd: string) => spawnSync(process.execPath, [BIN, cmd, '--run', run], { encoding: 'utf8' });

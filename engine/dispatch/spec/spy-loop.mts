@@ -3,7 +3,7 @@
  * beside it, and helpers to write documents. `engine/dispatch.spec.mts` and `engine.spec.mts` share it.
  */
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,36 +11,27 @@ import { fileURLToPath } from 'node:url';
 import { loadLoop, loop, type Run } from '../../../engine.mts';
 
 const FIXTURE = fileURLToPath(new URL('../../../spec/loop/fixture.loop.json', import.meta.url));
-const HOOKS = ['preflight', 'readResult', 'route', 'onAnswer', 'guard', 'summaryGuard', 'validator'];
+const HOOKS = ['preflight', 'guard', 'planGuard', 'onAnswer', 'onEnter'];
 /** Every hook of the loop calls the spy of its name. */
 const SPY = HOOKS.map((h) => `export const ${h} = (...a) => globalThis.looplockSpy.${h}(...a);`).join('\n');
 
 type Fn = (...a: any[]) => any;
 export const statusOf = (path: string) => /^status:\s*(\S+)\s*$/m.exec(readFileSync(path, 'utf8'))?.[1];
+const guard = (path: string) => {
+    const status = statusOf(path);
+    return status ? { status } : { errors: [`${path} § frontmatter: no status`] };
+};
 
-/**
- * The default hooks: the result hook reads the frontmatter status, the route dispatches discovery, then the
- * draft, then a revision until plan.md says `ok`, and then enters the gate, and the summary's guard writes
- * summary.md as the run enters the gate.
- */
+/** The default hooks: each guard returns the frontmatter status, and the plan's guard also writes diff.md on a result. */
 const BASE: Record<string, Fn> = {
     preflight: () => ({ errors: [], warnings: [] }),
-    readResult: (path: string) => {
-        const status = statusOf(path);
-        return status ? { status } : { error: `${path} § frontmatter: no status` };
-    },
-    route: ({ runDir }: { runDir: string }) => {
-        if (!existsSync(join(runDir, 'notes.md'))) return { dispatch: 'discovery' };
-        if (!existsSync(join(runDir, 'plan.md'))) return { dispatch: 'draft' };
-        return statusOf(join(runDir, 'plan.md')) === 'ok' ? { gate: 'gate', onRefusal: 'revision' } : { dispatch: 'revision' };
+    guard,
+    planGuard: (path: string, { event, runDir }: { event: string; runDir: string }) => {
+        if (event === 'result') writeFileSync(join(runDir, 'diff.md'), '# Diff\n\n3 change groups\n');
+        return guard(path);
     },
     onAnswer: () => {},
-    guard: () => [],
-    summaryGuard: (path: string, { event }: { event: string }) => {
-        if (event === 'enter') writeFileSync(path, '# Summary\n\n3 change groups\n');
-        return [];
-    },
-    validator: () => [],
+    onEnter: () => [],
 };
 
 export const calls: [string, ...any[]][] = [];
@@ -75,14 +66,13 @@ export async function started(inputs: Record<string, string> = { subject: 'the p
 }
 export type Env = Awaited<ReturnType<typeof started>>;
 
-/** A run at the gate: discovery and the draft done, plan.md `ok`, diff.md written, and summary.md written by its guard. */
+/** A run at the gate: discovery and the draft done, plan.md `ok`, and diff.md written by the plan's guard. */
 export async function atGate(env?: Env): Promise<Env> {
     const e = env ?? (await started());
     await e.next();
     e.write('notes.md');
     await e.result();
     e.write('plan.md');
-    e.write('diff.md', 'ok', '# Diff\n');
     const stop = await e.result();
     if (stop.stop !== 'gate') throw new Error(`expected the gate stop, got ${JSON.stringify(stop)}`);
     return e;

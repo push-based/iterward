@@ -16,7 +16,7 @@ Consider a dependency remediation workflow: discover the dependency, analyze its
 
 Agents own execution. Looplock owns protocol. A dispatch can go to Claude Code, Codex, a custom MCP agent, a CI process, or a human, and Looplock handles each the same way: it needs a dispatch message and a document with a status.
 
-Your orchestrator drives the loop with two calls, plus one command for each human move. `next` prints the move the run needs. `result` hands the document the agent wrote to the loop's result hook, and applies the action of the status the hook returns. The following diagram shows one dispatch and one human stop:
+Your orchestrator drives the loop with two calls, plus one command for each human move. `next` prints the move the run needs. `result` hands the document the agent wrote to its guard, which returns the status, and follows the loop's machine to the status's target. The following diagram shows one dispatch and one human stop:
 
 ```mermaid
 sequenceDiagram
@@ -30,7 +30,7 @@ sequenceDiagram
     A->>A: Do the work, write the document
     A-->>O: Reply for the human
     O->>L: result
-    L->>L: Read the status through the result hook, apply its action
+    L->>L: Read the status through the guard, follow the machine
     L-->>O: Next dispatch, or a stop with the human's moves
     O->>Human: Stop summary and moves
     Human-->>O: Answer, gate decision, or transition
@@ -41,45 +41,53 @@ The `looplock` CLI keeps each run's state in a `run.json` file and refuses any m
 
 ## A loop in code
 
-A loop is one JSON file: its inputs, its artifacts, and an ordered list of stages. Each condition the engine can't know, such as how to read a document's status or when the plan is ready for its gate, is a hook: a named export of an ES module beside the loop file. The following listing is `examples/default/default.loop.json`:
+A loop is one JSON file: its inputs, its artifacts, its steps, gates, and stops, and `machine`, the target of each outcome. Each condition the engine can't know, such as how to read a document's status or whether a plan is complete, is a hook: a named export of an ES module beside the loop file, named as `"<file>#<export>"`. The following listing is `examples/default/default.loop.json`:
 
 ```json
 {
   "name": "default",
   "inputs": { "required": ["subject"] },
-  "questions": "Q-{n}.md",
-  "result": { "module": "./hooks.mts", "export": "readResult" },
-  "onAnswer": { "module": "./hooks.mts", "export": "onAnswer" },
+  "questions": { "file": "Q-{n}.md", "onAnswer": "./hooks.mts#onAnswer" },
   "artifacts": {
-    "plan": { "file": "plan.md", "guard": { "module": "./hooks.mts", "export": "planGuard" } },
-    "build-report": { "file": "build.{attempt}.md" },
-    "verify-report": { "file": "verify.{attempt}.md" }
+    "plan": { "file": "plan.md", "guard": "./hooks.mts#planGuard" },
+    "build-report": { "file": "build.{attempt}.md", "guard": "./hooks.mts#statusGuard" },
+    "verify-report": { "file": "verify.{attempt}.md", "guard": "./hooks.mts#statusGuard" }
   },
-  "stages": [
-    { "plan": "plan", "route": { "module": "./hooks.mts", "export": "route" }, "dispatches": {
-      "planner": { "agent": "planner", "artifact": "plan", "message": "Plan {subject}. Run: {runPath}. Note: '{note}'.",
-        "outcomes": { "ok": { "route": true }, "needs-decisions": { "ask": true }, "blocked": { "park": true } } } } },
-    { "gate": "gate", "label": "Gate", "freezes": ["plan"] },
-    { "work": "build", "dispatch": { "agent": "builder", "artifact": "build-report", "message": "Build the plan. Run: {runPath}. Report: {document}. Note: '{note}'." } },
-    { "verify": "verify", "dispatch": { "agent": "verifier", "artifact": "verify-report", "message": "Verify the build. Run: {runPath}. Report: {document}." }, "maxFailed": 3 },
-    { "end": "done" }
-  ],
-  "limits": { "redispatch": 2, "unusable": 1 }
+  "steps": {
+    "plan": { "agent": "planner", "writes": "plan", "outcomes": ["ok", "needs-decisions", "blocked"] },
+    "build": { "agent": "builder", "writes": "build-report", "outcomes": ["ok", "blocked"] },
+    "verify": { "agent": "verifier", "writes": "verify-report", "outcomes": ["pass", "fail", "blocked"] }
+  },
+  "gates": { "gate": { "label": "Gate", "freezes": ["plan"] } },
+  "stops": { "done": {} },
+  "machine": {
+    "start": "plan",
+    "plan.ok": "gate",
+    "plan.needs-decisions": { "ask": "plan" },
+    "gate.approve": "build",
+    "gate.reject": "plan",
+    "build.ok": "verify",
+    "verify.pass": "done",
+    "verify.fail": "build",
+    "*.blocked": "park"
+  },
+  "human": { "build": ["plan"], "verify": ["plan", "build"] },
+  "limits": { "opens": 3 }
 }
 ```
 
-The hooks are plain functions that import nothing from Looplock. The route in `hooks.mts`, shown here without its types, sends the run to the gate after the plan says `ok` and no human note came after the planner's last dispatch:
+Each step declares the statuses its document can carry, and `machine` maps each one to a target: a step, a gate, a stop, `park`, or `{ "ask": STEP }`, which stops on the human's questions and then opens the step. `"*.blocked"` covers every step that declares `blocked`. A gate is left only by a decision, `gate.approve` or `gate.reject`, and `human` lists the moves a human can make from each step. Nothing is inferred: `compile` refuses a declared outcome with no target and a target that names no state.
+
+The hooks are plain functions that import nothing from Looplock. The guard in `hooks.mts`, shown here without its types, returns a document's status, which `machine` follows:
 
 ```ts
-export function route({ runDir, run }) {
-    const plan = join(runDir, 'plan.md');
-    const since = run.dispatches.findLast((d) => d.name === 'planner')?.openedAt ?? '';
-    const noted = run.history.some((h) => h.human && h.at > since);
-    return existsSync(plan) && frontmatter(plan)?.status === 'ok' && !noted ? { gate: 'gate', onRefusal: 'planner' } : { dispatch: 'planner' };
+export function statusGuard(path) {
+    const status = frontmatter(path)?.status;
+    return status ? { status } : { errors: [`${basename(path)} § frontmatter: no status`] };
 }
 ```
 
-The stage order supplies the targets the loop file leaves out: the gate moves to `build` on an approval and back to `plan` on a rejection, and the verify stage moves to `done` on `pass` and back to `build` on `fail`. The stage kinds supply the builder's and the verifier's standard outcomes, and the human's moves from each state. An explicit value always wins. A verify stage gets no forward exit except a verdict, so the run reaches `done` only through `pass`. To print every state, target, outcome, and human edge the stages compile to, with the pointer of each inferred value, run `node bin.mts compile --config examples/default/default.loop.json`. For every field, see [Configuration](docs/configuration.md).
+To print the compiled loop, each outcome resolved to its target, run `node bin.mts compile --config examples/default/default.loop.json`. For every field, see [Configuration](docs/configuration.md).
 
 ## Scope
 
@@ -93,15 +101,15 @@ Its scope is small on purpose. Looplock fits workflows where agents or humans do
 
 Looplock makes one promise:
 
-> Looplock guarantees that a run moves only along the transitions its loop declares, and it records every human move. It doesn't judge a verdict or prove who made a move: the consumer's validators guard honest verdicts, and the MCP client authorizes each human move interactively. A consumer's preflight can refuse the client configurations it knows to approve human moves automatically. Neither the engine nor a consumer can prove that a human clicked.
+> Looplock guarantees that a run moves only along the transitions its loop declares, and it records every human move. It doesn't judge a verdict or prove who made a move: the consumer's guards and entry checks guard honest verdicts, and the MCP client authorizes each human move interactively. A consumer's preflight can refuse the client configurations it knows to approve human moves automatically. Neither the engine nor a consumer can prove that a human clicked.
 
 The engine checks the run file on every call. These rules hold for every loop:
 
-- **Valid transitions.** A run moves only along the states its stages compile to, and a state's validator runs on every transition into it.
-- **Gate approvals and freezes.** A run leaves a gate forward only after a human approves it. The approval freezes the files the gate names. A changed frozen file stops the run until a human moves it back past the gate, which drops the freeze.
-- **One human edge set per state.** A human moves with `transition` only along the human edges the compiler gives the current state. Every stop lists the human's moves as data: the call that records each move, and what the call changes.
+- **Valid transitions.** A run moves only along `machine`, a gate's decisions, and the human moves the loop lists, and a state's `onEnter` runs on every transition into it.
+- **Gate approvals and freezes.** A run leaves a gate forward only after a human approves it. The approval freezes the files the gate names. A changed frozen file stops the run until a human moves it into a step that rewrites the frozen artifact, which drops the freeze.
+- **Declared human moves.** A human moves with `transition` only along the moves the loop lists for the current state. Every stop lists the human's moves as data: the call that records each move, and what the call changes.
 - **Answers, all or none.** An `answer` call records all of its answers or none of them. For each answer, the call runs the loop's `onAnswer` hook, then freezes the question file.
-- **Bounded re-dispatches.** The CLI re-dispatches an unusable or refused result with the reason, and parks the run for a human past a limit.
+- **Bounded opens.** An unusable or refused result opens the same step again with the lines to fix, and a step opened `limits.opens` times since the last human move parks the run for a human.
 
 For every rule and the terms it uses, see [Protocol rules](docs/protocol.md).
 
@@ -117,10 +125,10 @@ node bin.mts new --config examples/default/default.loop.json --run runs/example/
 node bin.mts next --run runs/example/run.json
 ```
 
-`next` prints the first dispatch, the planner's message:
+`next` prints the first dispatch, the planner's standard message:
 
 ```json
-{"do":"dispatch","id":1,"agent":"planner","message":"Plan the settings page. Run: runs/example/run.json. Note: ''."}
+{"do":"dispatch","id":1,"agent":"planner","message":"Step: plan\nRun: runs/example/run.json\nDocument: runs/example/plan.md\nInputs:\n  subject: the settings page\nNote: none\nFixes: none"}
 ```
 
 To play each agent by hand through the gate, the build, and the verification, continue with [Run the default loop by hand](docs/tutorial.md). To start a loop of your own, copy `examples/default/`, as [The default loop](examples/default/README.md) describes.
@@ -131,7 +139,7 @@ The following pages cover the rest:
 
 - [Run the default loop by hand](docs/tutorial.md): play every agent and take a run to `done`.
 - [Protocol rules](docs/protocol.md): the promise, the terms, and the rules.
-- [Configuration](docs/configuration.md): the loop file, stage kinds, inferred values, human edges, actions, placeholders, and hooks.
+- [Configuration](docs/configuration.md): the loop file, artifacts, steps, gates, stops, the machine, human moves, limits, the standard message, and hooks.
 - [CLI reference](docs/cli.md): the commands, their flags, and the exit codes.
 - [MCP server](docs/mcp.md): drive a run through MCP tool calls.
 - [The default loop](examples/default/README.md): the example loop, its hooks, and its agent templates.

@@ -36,7 +36,7 @@ Done when: <!-- TODO -->
 
 ## Stops
 
-Every stop is data. `moves` lists the human's moves from the current state: each move names the `call` that records it, the arguments the call takes, and what the call changes besides the status, such as the files it `freezes` or the freeze it `drops`. Tell the human each move in plain words, offer only the moves the stop lists, and run only a move the human chose, with the human's words. The shell asks the human to allow each `answer`, `gate`, and `transition`. `warnings` lists the preflight warnings, `since` the dispatches since the previous stop, and `recorded` the human moves since the latest dispatch.
+Every stop is data. `moves` lists the human's moves from the current state: each move names the `call` that records it, the arguments the call takes, and what the call changes besides the status, such as the files it `freezes` or the freeze it `drops`. Tell the human each move in plain words, offer only the moves the stop lists, and run only a move the human chose, with the human's words. The shell asks the human to allow each `answer`, `gate`, and `transition`. `warnings` lists the preflight warnings, `since` the dispatches since the last human move, and `recorded` the human moves since the latest dispatch.
 
 <!-- TODO: when to show the warnings -->
 

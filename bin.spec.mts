@@ -35,20 +35,20 @@ test('new runs the preflight: an error refuses the run, grouped, and writes noth
     const refused = cli('new', '--config', config, '--run', run, '--subject', 'bad');
     assert.deepEqual([refused.status, refused.stderr], [2, 'mcp.json § looplock:\n  - autoApprove lists gate\n']);
     assert.equal(existsSync(dirname(run)), false);
-    assert.deepEqual(json(cli('new', '--config', config, '--run', run, '--subject', 'c')), { ok: true, status: 'plan', warnings: ['no linter'] });
+    assert.deepEqual(json(cli('new', '--config', config, '--run', run, '--subject', 'c')), { ok: true, status: 'discovery', warnings: ['no linter'] });
     assert.match(cli('new', '--config', config, '--run', run, '--subject', 'c').stderr, /a run exists/);
     assert.match(cli('new', '--config', config, '--run', join(dirname(run), 'other.json'), '--subject', 'c').stderr, /holds files from an earlier run/);
 });
 
-test('next and result drive the run and save it; show prints its state; compile prints the loop and what it inferred', () => {
+test('next and result drive the run and save it; show prints its state; compile prints the loop with each outcome resolved', () => {
     const run = startedRun();
     const first = json(cli('next', '--run', run));
     assert.deepEqual([first.do, first.id, first.agent], ['dispatch', 1, 'scout']);
     doc(run, 'notes.md');
     assert.deepEqual([json(cli('result', '--run', run)).id, json(cli('show', '--run', run)).dispatches], [2, 2]);
     const compiled = json(cli('compile', '--config', JSON.parse(readFileSync(run, 'utf8')).config.path));
-    assert.deepEqual(compiled.config.result, { module: './hooks.mjs', export: 'readResult' });
-    assert.ok(compiled.inferred.includes('/gates/gate/next'));
+    assert.equal(compiled.config.artifacts.plan.guard, './hooks.mjs#planGuard');
+    assert.deepEqual(compiled.config.steps.build.outcomes, { ok: 'verify-build', 'plan-invalidated': 'park', blocked: 'park' });
 });
 
 test('validate prints ok, or the grouped lines with exit 2; past 20,000 characters it prints 40 lines and the spill file', () => {
@@ -65,10 +65,10 @@ test('validate prints ok, or the grouped lines with exit 2; past 20,000 characte
     const file = /^… 361 more lines in (.+)$/.exec(long[40])![1];
     assert.equal(file, join(dirname(run), 'out', 'validate.1.txt'));
     assert.equal(readFileSync(file, 'utf8').split('\n').length, 401, 'the file holds the whole list');
-    doc(run, 'verdict.2.md');
-    doc(run, 'verdict.10.md', 'upheld');
+    doc(run, 'build.2.report.md');
+    writeFileSync(join(dirname(run), 'build.10.report.md'), '---\nid: build.10.report.md\n---\n');
     writeFileSync(join(dirname(run), 'errors.txt'), '');
-    assert.equal(cli('validate', 'verdict', '--run', run).stdout, 'ok\n');
+    assert.match(cli('validate', 'build-report', '--run', run).stderr, /build\.10\.report\.md § frontmatter:\n {2}- no status/, 'a per-attempt artifact validates its highest attempt');
 });
 
 test('answer records a JSON list all or none, and keeps the single form; both forms, neither, or a malformed list is a usage error', () => {
