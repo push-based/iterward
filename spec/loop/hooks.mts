@@ -1,6 +1,8 @@
-/** The hooks of the fixture loop `fds.loop.json`: each one small, so the specs can load and hash the loop. */
+/** The hooks of the fixture loop `fixture.loop.json`: each one small, so the specs can load and hash the loop. */
 
-import type { GateSummary, Guard, OnAnswer, Preflight, ResultHook, Route, Validator } from '../../config.mts';
+import { writeFileSync } from 'node:fs';
+
+import type { Guard, OnAnswer, Preflight, ResultHook, Route, Validator } from '../../config.mts';
 import { statusOf } from './status.mts';
 
 /** Not a hook: the statuses the fixture's documents carry. */
@@ -13,6 +15,10 @@ export const readResult: ResultHook = (path) => {
 export const route: Route = () => ({ dispatch: 'discovery' });
 export const onAnswer: OnAnswer = () => {};
 export const guard: Guard = () => [];
+/** Writes the gate summary as the run enters the gate, and never after, so the approval freezes what the human saw. */
+export const summaryGuard: Guard = (path, { event }) => {
+    if (event === 'enter') writeFileSync(path, '# Summary\n');
+    return [];
+};
 export const preflight: Preflight = () => ({ errors: [], warnings: [] });
-export const gateSummary: GateSummary = ({ gate }) => [`${gate}: nothing to summarize`];
 export const validator: Validator = () => [];

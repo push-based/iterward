@@ -19,21 +19,31 @@ The following table lists the 10 commands:
 
 ## Stops
 
-A stop is one JSON object. Every stop carries `status`, `moves`, `since`, and `recorded`, and the fields of its kind:
+A stop is one JSON object, and every field of it is data. The orchestrator decides how to word each field for the human, and when to show it. Every stop carries `status`, `moves`, `warnings`, `since`, and `recorded`, and the fields of its kind:
 
 - **`questions`**: `questions`, the pending questions with their files.
-- **`gate`**: `gate`, `label`, `freezes`, the files an approval freezes, and `summary`, the lines of the gate's summary hook.
+- **`gate`**: `gate`, `label`, and `freezes`, the files an approval freezes.
 - **`blocked`**: `blockedFrom` and `reason`, the park note.
 - **`status`**: nothing more. The run is at a stop or an end stage.
 
-`moves` lists the human's moves from the current state, as lines the orchestrator shows word for word. `warnings` lists the preflight warnings while the freezing gate isn't approved, and always in a loop with no freezing gate. `since` lists the dispatches between the last two distinct stops, with each one's outcome, minutes, and refusal note. `recorded` lists the human moves since the latest closed dispatch.
+`warnings` lists the preflight warnings. `since` lists the dispatches between the last two distinct stops, with each one's outcome, minutes, and refusal note. `recorded` lists the human moves since the latest closed dispatch, each with its `call`, the call's arguments, and `at`, the time the run recorded it.
+
+`moves` lists the human's moves from the current state. Each move names its `call` and the arguments the call takes, and lists what the call changes besides the status. The following table lists the fields of each call's moves, and what the human gives for the call:
+
+| Call | Fields | What the human gives |
+| --- | --- | --- |
+| `answer` | `id`, and `freezes`, the question file the answer freezes | An option key or `custom`, and the human's words |
+| `gate` | `gate`, `decision`, `to`, and `freezes` or `refreezes` when the call changes a freeze | A note, which a rejection requires |
+| `transition` | `to`, and any of `resumes`, `retries`, `resets`, `drops`, and `refreezes` | A note |
+
+`resumes` marks the move of a blocked run back into the state it blocked from, and `retries` a move back to the work stage that a verify stage's `fail` names. `resets` resets the failed count. `drops` names the gate whose freeze the move drops, with the gate's files. `refreezes` lists the answered question files that a move into the initial state freezes again at their current bytes.
 
 The following stop is a blocked run of the default loop after the builder returned `blocked`:
 
 ```json
 {"do":"stop","stop":"blocked","status":"blocked","blockedFrom":"build","reason":"builder returned blocked; the reason is in runs/example/build.1.md.",
- "moves":["`transition` to build, with the human's note: resumes build, and the failed count resets.","`transition` to plan, with the human's note: moves to plan and drops the Gate freeze on plan.md."],
- "since":[{"id":2,"name":"build","agent":"builder","attempt":1,"outcome":"blocked","minutes":0}],"recorded":[]}
+ "moves":[{"call":"transition","to":"build","resumes":true,"resets":true},{"call":"transition","to":"plan","drops":{"gate":"gate","files":["runs/example/plan.md"]}}],
+ "warnings":[],"since":[{"id":2,"name":"build","agent":"builder","attempt":1,"outcome":"blocked","minutes":0}],"recorded":[]}
 ```
 
 ## Answer

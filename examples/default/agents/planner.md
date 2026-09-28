@@ -2,23 +2,19 @@
 name: planner
 description: >-
   <!-- TODO: one paragraph: when the orchestrator calls it and what it writes -->
-tools: ["read", "write", "shell"]
-permissions:
-  rules:
-    - capability: fs_write
-      match: ["<RUNS_DIR>/*/run.json", "<RUNS_DIR>/*/out/**", "<RUNS_DIR>/*/build.*.md", "<RUNS_DIR>/*/verify.*.md", "<AGENTS_DIR>/**", "<LOOPLOCK_DIR>/**", "<LOOP_DIR>/**", "<SOURCE_DIR>/**"]
-      effect: deny
-    - capability: shell
-      match: ["node <LOOPLOCK_DIR>/bin.mts validate plan *"]
-      effect: allow
-welcomeMessage: <WELCOME_MESSAGE>
-resources:
-  - "file://<RESOURCE_PATH>"
 ---
 
 # planner
 
 <!-- TODO: role -->
+
+## Permissions
+
+<!-- Map these rules to the permission settings of your agent harness. -->
+
+- **Tools.** Read, write, and shell.
+- **Writes.** Never write `<RUNS_DIR>/*/run.json`, `<RUNS_DIR>/*/out/**`, `<RUNS_DIR>/*/build.*.md`, `<RUNS_DIR>/*/verify.*.md`, `<AGENTS_DIR>/**`, `<LOOPLOCK_DIR>/**`, `<LOOP_DIR>/**`, or `<SOURCE_DIR>/**`.
+- **Shell.** Run only `node <LOOPLOCK_DIR>/bin.mts validate plan`.
 
 ## Content trust boundary
 

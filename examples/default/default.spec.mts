@@ -33,7 +33,7 @@ test('the default loop takes a run from plan to done', () => {
     writeFileSync(join(dir, 'Q-1.md'), '---\nid: Q-1\nstatus: pending\n---\n\nWhich layout?\n\n- A. One page\n- B. Two pages\n');
     const asked = cli('result');
     assert.deepEqual([asked.stop, asked.questions], ['questions', [{ id: 'Q-1', file: join(dir, 'Q-1.md') }]]);
-    assert.deepEqual(asked.moves, ["`answer` Q-1 with an option key or `custom`, and the human's words: resolves Q-1 and freezes Q-1.md."]);
+    assert.deepEqual(asked.moves, [{ call: 'answer', id: 'Q-1', freezes: [join(dir, 'Q-1.md')] }]);
     assert.deepEqual(cli('answer', '--id', 'Q-1', '--option', 'A', '--answer', 'One page.'), { ok: true, answered: [{ id: 'Q-1', chosen: 'A' }], pending: [] });
     assert.match(readFileSync(join(dir, 'Q-1.md'), 'utf8'), /^---\nid: Q-1\nstatus: resolved\nchosen: A\nanswer: "One page."\n---\n\nWhich layout\?/);
 
@@ -41,7 +41,7 @@ test('the default loop takes a run from plan to done', () => {
     doc('plan.md', 'ok');
     const gate = cli('result');
     assert.deepEqual([gate.stop, gate.freezes], ['gate', [join(dir, 'plan.md')]]);
-    assert.equal(gate.moves[0], '`gate` gate approved, with an optional note: freezes plan.md and moves to build.');
+    assert.deepEqual(gate.moves[0], { call: 'gate', gate: 'gate', decision: 'approved', to: 'build', freezes: [join(dir, 'plan.md')] });
 
     cli('gate', 'gate', '--decision', 'rejected', '--note', 'Add a cancel button.');
     assert.equal(cli('next').message, `Plan the settings page. Run: ${run}. Note: 'Add a cancel button.'.`);

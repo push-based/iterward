@@ -11,7 +11,7 @@ export interface HookRef { module: string; export: string }
 export interface LoopFile {
     name: string;
     inputs: { required: string[]; optional?: string[] };
-    /** A question's file name in the run folder, with {n}, such as "RFC-{n}.md". Questions exist only at the initial state. */
+    /** A question's file name in the run folder, with {n}, such as "Q-{n}.md". Questions exist only at the initial state. */
     questions?: string;
     /** Runs on `new`, before the run exists. */
     preflight?: HookRef;
@@ -24,13 +24,13 @@ export interface LoopFile {
     stages: StageDef[];
     /** One validator per state, run on every transition into that state. */
     validators?: Record<string, HookRef>;
-    limits?: { redispatch?: number; unusable?: number; dispatchMinutes?: number };
+    limits?: { redispatch?: number; unusable?: number };
 }
 
 /** One stage of a loop. The key that names the kind also names the state; every target a stage leaves out is inferred. */
 export type StageDef =
     | { plan: string; route: HookRef; dispatches: Record<string, DispatchDef>; next?: string | string[] }
-    | { gate: string; label: string; next?: string; back?: string; freezes?: string[]; summary?: HookRef }
+    | { gate: string; label: string; next?: string; back?: string; freezes?: string[] }
     | { work: string; dispatch: DispatchDef }
     | { verify: string; dispatch: DispatchDef; pass?: string; fail?: string; maxFailed?: number }
     | { stop: string }
@@ -89,9 +89,6 @@ export type Route = (ctx: HookContext) => Awaitable<{ dispatch: string; with?: R
  */
 export type OnAnswer = (ctx: HookContext & { question: { id: string; file: string }; option: string; answer: string }) => Awaitable<void>;
 
-/** Lines the gate stop shows before the human decides. */
-export type GateSummary = (ctx: HookContext & { gate: string }) => Awaitable<string[]>;
-
 // ---- The run record: run.json, which the engine writes.
 
 export interface Run {
@@ -127,15 +124,13 @@ export interface Dispatch {
 /** A move a human can make with `transition`; `drops` names the gate whose freeze the move drops. */
 export interface HumanEdge { to: string; drops?: string; resets?: true; retries?: true }
 
-export interface GateConfig { label: string; next: string; back: string; freezes: string[]; summary?: GateSummary }
+export interface GateConfig { label: string; next: string; back: string; freezes: string[] }
 
 export interface DispatchConfig { agent: string; artifact: string; message: string; outcomes: Record<string, Action> }
 
 export interface Limits {
     redispatch: number;
     unusable: number;
-    /** A dispatch that ran longer is `slow` in a stop's `since`. */
-    dispatchMinutes?: number;
     /** From a verify stage's `maxFailed`: `max` failed verdicts of `stage` since the last human move into `at` park the run. */
     failed?: { stage: string; at: string; max: number };
 }

@@ -6,7 +6,7 @@ The engine checks these rules against the run file on every call. A loop file na
 
 Looplock makes one promise:
 
-> Looplock guarantees that a run moves only along the transitions its loop declares, and it records every human move. It doesn't judge a verdict or prove who made a move: the consumer's validators guard honest verdicts, and the MCP client authorizes each human move interactively. A consumer's preflight can refuse the client configurations it knows to approve human moves automatically, as the FDS Kiro integration does. Neither the engine nor a consumer can prove that a human clicked.
+> Looplock guarantees that a run moves only along the transitions its loop declares, and it records every human move. It doesn't judge a verdict or prove who made a move: the consumer's validators guard honest verdicts, and the MCP client authorizes each human move interactively. A consumer's preflight can refuse the client configurations it knows to approve human moves automatically. Neither the engine nor a consumer can prove that a human clicked.
 
 ## Terms
 
@@ -49,7 +49,7 @@ A human has three moves: `answer` questions, approve or reject a `gate` with a n
 - An edge into the stage that `maxFailed` guards resets the failed count.
 - A blocked run resumes into the state it blocked from, or takes a human edge of that state. It leaves `blocked` no other way.
 
-Every stop lists the human's moves from the current state as lines, with the effect of each, and the preflight warnings while the freezing gate isn't approved. A loop with no freezing gate always shows them. The orchestrator shows both word for word.
+Every stop lists the human's moves from the current state as data: the call that records each move, the arguments the call takes, and what the call changes besides the status. Every stop also carries the preflight warnings. The orchestrator words the moves for the human, and decides when to show the warnings.
 
 ### Gates and questions
 

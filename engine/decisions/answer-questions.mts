@@ -17,7 +17,7 @@ export async function answerQuestions(ctx: Ctx, runPath: string, run: Run, answe
         const q = run.questions.find((x) => x.id === id);
         return [
             ...(!hasText(id) ? ['needs a question id'] : !q ? [`isn't in the ledger, which holds ${run.questions.map((x) => x.id).join(', ') || 'no question'}`] : []),
-            ...(q && q.status !== 'pending' ? ['is resolved already; a new question with supersedes replaces it'] : []),
+            ...(q && q.status !== 'pending' ? ['is resolved already'] : []),
             ...(hasText(option) ? [] : ['needs an option key, or custom']),
             ...(hasText(answer) ? [] : ["needs the human's words as its answer, verbatim"]),
             ...(hasText(id) && answers.findIndex((x) => x.id === id) < i ? ['appears more than once'] : []),

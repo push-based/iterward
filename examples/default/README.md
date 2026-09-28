@@ -19,7 +19,7 @@ To start a loop of your own from this folder, follow these steps:
 
 1. Copy the folder to a directory outside the Looplock repository, such as `loops/review/`.
 2. In the copy, rename `default.loop.json`, and change `name`, `inputs`, `artifacts`, and `stages`. For every field, see [Configuration](../../docs/configuration.md).
-3. In `hooks.mts`, change the hooks your loop needs, and add a hook for each guard, validator, preflight, or gate summary the loop file names. The hooks import nothing from Looplock, so the copy works wherever it lives.
+3. In `hooks.mts`, change the hooks your loop needs, and add a hook for each guard, validator, or preflight the loop file names. The hooks import nothing from Looplock, so the copy works wherever it lives.
 4. Run `node LOOPLOCK_DIR/bin.mts compile --config loops/review/review.loop.json`, and check the states, targets, and human edges it prints. Replace `LOOPLOCK_DIR` with the directory of your Looplock copy.
 5. Change the agents in `agents/` to match your dispatches and their statuses.
 6. In `default.spec.mts`, change `BIN` to your Looplock copy and `LOOP` to your loop file, and change the steps to your loop's path to its end stage.

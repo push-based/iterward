@@ -15,7 +15,7 @@ const schema: ToolSchema = {
                 items: {
                     type: 'object',
                     properties: {
-                        id: { type: 'string', description: 'The question ID, such as RFC-7.' },
+                        id: { type: 'string', description: 'The question ID, such as Q-7.' },
                         option: { type: 'string', description: 'The key of the option the human chose, or `custom` when no option fits.' },
                         answer: { type: 'string', description: "The human's words for this question, stored as given." },
                     },

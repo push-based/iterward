@@ -48,4 +48,4 @@ Run the engine's tests from the repository root:
 node --test '**/*.spec.mts'
 ```
 
-One test in `engine.spec.mts` keeps the engine domain independent. It scans every file outside the specs for terms from the workflow Looplock came from, and fails on a match. Put a loop for a specific domain in its own directory, outside this repository.
+One test in `engine.spec.mts` keeps the repository domain independent. It scans every file of the repository, the specs and their fixtures included, for terms from the workflow Looplock came from, and fails on a match. Put a loop for a specific domain in its own directory, outside this repository.

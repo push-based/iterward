@@ -44,7 +44,7 @@ export { FreezeError } from './engine/run/freezes.mts';
 export { group, spill } from './engine/spill.mts';
 export { hasText, sha256 } from './engine/util.mts';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
 
 /** The operations of one loop, each bound to the context built from it. */
 export function loop(cfg: LoopConfig) {
