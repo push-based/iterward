@@ -49,7 +49,7 @@ export async function transition(ctx: Ctx, runPath: string, run: Run, to: string
         }
     }
     if (human && to === cfg.initial) {
-        // The ledger stays the authority: the target's validator judges an RFC that now disagrees with it.
+        // The ledger stays the authority: the target's validator judges a question file that now disagrees with it.
         const asked = new Set(run.questions.map((q) => q.id));
         for (const [file, f] of Object.entries(run.freezes)) {
             if (!asked.has(f.by)) continue;

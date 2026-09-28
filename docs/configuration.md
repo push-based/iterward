@@ -10,11 +10,11 @@ A loop is one JSON file, and its hooks are named exports of ES modules beside it
 - `questions`: optional. A question file's name in the run folder, with `{n}`, such as `"Q-{n}.md"`. Questions exist only at the initial state.
 - `preflight`: optional. The hook that runs on `new`, before the run exists.
 - `result`: the hook that reads a dispatch's status from its document.
-- `onAnswer`: optional. The hook that writes the human's answer into the question file.
+- `onAnswer`: optional. The hook that writes the human's answer into the question file. It runs once for each answer of an `answer` call.
 - `artifacts`: the files the dispatches write, as the section "Artifacts" describes.
 - `stages`: the loop's stages, in order, as the section "Stages" describes.
 - `validators`: optional. One hook per state, which runs on every transition into that state.
-- `limits`: optional. The refusals in a row (`redispatch`, default 2) and the unusable results in a row (`unusable`, default 1) before the run parks, and the minutes after which a stop marks a dispatch as `slow` (`dispatchMinutes`).
+- `limits`: optional. The refusals in a row (`redispatch`, default 2) and the unusable results in a row (`unusable`, default 1) before the run parks.
 
 A hook is `{ "module": "./hooks.mts", "export": "readResult" }`: the module path is relative to the loop file, and the export must be a function.
 
@@ -27,7 +27,7 @@ An artifact is `{ "file": NAME, "guard"?: HOOK }`. `file` is a plain file name i
 A stage is an object whose key names both its kind and its state, such as `{ "work": "build" }`. The following list describes the six kinds and the fields each one takes:
 
 - `{ plan, route, dispatches, next? }`: the initial state. It comes first. `route` is the hook that picks the next move, `dispatches` holds the plan dispatches, and `next` names the gate or gates the route can enter.
-- `{ gate, label, next?, back?, freezes?, summary? }`: a human approval point. `freezes` names the artifacts an approval freezes, and at most one gate, the *freezing gate*, declares it. `summary` is the hook whose lines the gate stop shows. `next` and `back` are the exits after an approval and a rejection.
+- `{ gate, label, next?, back?, freezes? }`: a human approval point. `freezes` names the artifacts an approval freezes, and at most one gate, the *freezing gate*, declares it. `next` and `back` are the exits after an approval and a rejection. For more information about a summary at the gate, see [Show a summary at a gate](#show-a-summary-at-a-gate).
 - `{ work, dispatch }`: a stage one dispatch works in, such as `build`.
 - `{ verify, dispatch, pass?, fail?, maxFailed? }`: a stage that judges a work stage. `pass` and `fail` are the exits for each verdict. `maxFailed` parks the run after that many failed verdicts since the latest human move into `fail`.
 - `{ stop }`: a state where the run waits for a human.
@@ -103,10 +103,39 @@ A blocked run's human edges are the resume edge into the state it blocked from, 
 | An artifact's `guard` | `Guard` | The file's path, `event`, and the dispatch and status when there is one | Error lines; an empty list accepts |
 | A state's validator | `Validator` | `from`, `to`, `human`, and the dispatch when there is one | Error lines; an empty list accepts |
 | `route` | `Route` | The context | `{ dispatch, with? }`, or `{ gate, onRefusal }` |
-| `onAnswer` | `OnAnswer` | The question's id and file, the option key or `custom`, and the human's words | Nothing; a throw refuses the answer |
-| A gate's `summary` | `GateSummary` | The gate's name | The lines the gate stop shows |
+| `onAnswer` | `OnAnswer` | The question's id and file, the option key or `custom`, and the human's words | Nothing; a throw refuses the whole `answer` call, and the engine doesn't undo the hook's writes for the call's earlier answers |
 
 A guard's `event` says why it runs: `validate` for the `validate` command, `result` for a dispatch's outcome, `enter` for a transition into the freezing gate, and `approve` for that gate's approval.
+
+## Show a summary at a gate
+
+To show the human a summary at the freezing gate, make the summary an artifact that the gate freezes, with a guard that writes the file. Entering the freezing gate runs the guard with `event: 'enter'` before the engine checks that every frozen file exists. The gate stop then lists the summary under `freezes`, and the approval freezes the summary the human saw. The approval runs the guard again with `event: 'approve'`, so write the file only on `enter`. The following excerpt of a loop file declares the summary and freezes it at the gate:
+
+```json
+{
+  "artifacts": {
+    "plan": { "file": "plan.md" },
+    "summary": { "file": "summary.md", "guard": { "module": "./hooks.mts", "export": "writeSummary" } }
+  },
+  "stages": [
+    { "gate": "gate", "label": "Gate", "freezes": ["plan", "summary"] }
+  ]
+}
+```
+
+The following guard writes the summary as the run enters the gate. `summarize` stands for your own code:
+
+```ts
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+export function writeSummary(path, { event, runDir }) {
+    if (event === 'enter') writeFileSync(path, summarize(join(runDir, 'plan.md')));
+    return [];
+}
+```
+
+A gate that freezes nothing runs no guard on entry. To show a summary at such a gate, write it from the gate's validator, which runs on every transition into the gate, and name the file in the orchestrator's instructions.
 
 ## Load-time checks
 

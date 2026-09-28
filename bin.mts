@@ -12,6 +12,7 @@
  *   show        --run <run.json>       the run's state
  *   validate    <artifact> --run <run.json>        `ok`, or the artifact guard's error lines with exit 2
  *   answer      --run <run.json> --id <ID> --option <KEY|custom> --answer <the human's words>
+ *   answer      --run <run.json> --answers <JSON array of {id, option, answer}>   records all of them or none
  *   gate        <name> --run <run.json> --decision approved|rejected [--note <the human's words>]
  *   transition  --run <run.json> --to <state> --note <the human's words>
  *   --version
@@ -52,6 +53,16 @@ function parse(argv: string[]): Record<string, any> {
 function req(a: Record<string, any>, keys: string[]) {
     const missing = keys.filter((k) => a[k] == null);
     if (missing.length) throw new Usage(`missing ${missing.map((k) => `--${k}`).join(', ')}`);
+}
+
+/** `--answers`: a JSON array of one or more objects, each `{ id, option, answer }`. The engine checks each entry. */
+function parseAnswers(json: string): Record<string, any>[] {
+    let v: unknown;
+    try {
+        v = JSON.parse(json);
+    } catch {}
+    if (!Array.isArray(v) || !v.length || !v.every((x) => x !== null && typeof x === 'object' && !Array.isArray(x))) throw new Usage('--answers takes a JSON array of one or more { id, option, answer } objects');
+    return v;
 }
 
 /** The run and its loop. `loadRun` refuses a run whose loop file or hook modules changed since it started. */
@@ -101,10 +112,14 @@ const COMMANDS: Record<string, (a: Record<string, any>) => Promise<unknown>> = {
         return 'ok';
     },
     async answer(a) {
-        req(a, ['run', 'id', 'option', 'answer']);
+        req(a, ['run']);
+        const single = ['id', 'option', 'answer'].some((k) => a[k] != null);
+        if (single === (a.answers != null)) throw new Usage('answer takes either --answers, or --id, --option, and --answer');
+        if (single) req(a, ['id', 'option', 'answer']);
+        const answers = single ? [{ id: a.id, option: a.option, answer: a.answer }] : parseAnswers(a.answers);
         return change(a, async (L, r) => {
-            const q = await L.answerQuestion(a.run, r, { id: a.id, option: a.option, answer: a.answer });
-            return { ok: true, id: q.id, chosen: q.chosen, pending: pendingQuestions(r).map((x) => x.id) };
+            const answered = await L.answerQuestions(a.run, r, answers);
+            return { ok: true, answered: answered.map((q) => ({ id: q.id, chosen: q.chosen })), pending: pendingQuestions(r).map((x) => x.id) };
         });
     },
     async gate(a) {

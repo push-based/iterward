@@ -14,6 +14,7 @@
  *     artifacts' guards,
  *   - an approval freezes the gate's files and an answer freezes its question file; a changed frozen file parks
  *     an agent's move and refuses a human's, and only a human transition back past the gate drops its freeze,
+ *   - one `answer` call records all of its answers or none of them,
  *   - a state's validator runs on every transition into it,
  *   - a dispatch's document must be written during the dispatch, and its status must be an outcome of it,
  *   - an unusable or refused result is re-dispatched a bounded number of times, then the run parks,
@@ -23,7 +24,7 @@
 
 import type { LoopConfig } from './config.mts';
 import { context } from './engine/context.mts';
-import { answerQuestion } from './engine/decisions/answer-question.mts';
+import { answerQuestions } from './engine/decisions/answer-questions.mts';
 import { next } from './engine/dispatch/next.mts';
 import { result } from './engine/dispatch/result.mts';
 import { approve } from './engine/gates/approve.mts';
@@ -43,7 +44,7 @@ export { FreezeError } from './engine/run/freezes.mts';
 export { group, spill } from './engine/spill.mts';
 export { hasText, sha256 } from './engine/util.mts';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
 
 /** The operations of one loop, each bound to the context built from it. */
 export function loop(cfg: LoopConfig) {
@@ -54,7 +55,7 @@ export function loop(cfg: LoopConfig) {
         loadRun: loadRun.bind(null, ctx),
         saveRun: saveRun.bind(null, ctx),
         transition: transition.bind(null, ctx),
-        answerQuestion: answerQuestion.bind(null, ctx),
+        answerQuestions: answerQuestions.bind(null, ctx),
         approve: approve.bind(null, ctx),
         reject: reject.bind(null, ctx),
         next: next.bind(null, ctx),

@@ -11,6 +11,8 @@ These agent templates run the loop in `default.loop.json`. The orchestrator driv
 
 Each template fills in what the loop and the CLI fix: the dispatch messages, the documents and their statuses, and the CLI commands each agent can run. Each `<!-- TODO: … -->` comment marks domain logic for you to write.
 
+Each template has a Permissions section: the tools the agent uses, the files it never writes, and the shell commands it runs. Map the section to the permission settings of your agent harness, because the templates carry no harness-specific frontmatter.
+
 Before you use the agents, replace these placeholders in every file:
 
 - `<LOOPLOCK_DIR>`: the directory that holds `bin.mts`, or `bin.mjs` in a built copy, relative to the repository root.
@@ -19,5 +21,3 @@ Before you use the agents, replace these placeholders in every file:
 - `<AGENTS_DIR>`: the directory that holds these agent files.
 - `<SOURCE_DIR>`: the source that the orchestrator, the planner, and the verifier never write.
 - `<BUILD_COMMAND>` and `<CHECK_COMMAND>`: the shell commands that the builder and the verifier run.
-- `<WELCOME_MESSAGE>`: the line each agent shows when it starts.
-- `<RESOURCE_PATH>`: the files each agent loads into its context. Delete the `resources` entry when an agent needs none.

@@ -15,12 +15,12 @@ const ACTIONS = ['transition', 'route', 'ask', 'park'];
 const FIELDS: Record<string, [string, string[]]> = {
     loop: ['a loop file', ['name', 'inputs', 'questions', 'preflight', 'result', 'onAnswer', 'artifacts', 'stages', 'validators', 'limits']],
     inputs: ['inputs', ['required', 'optional']],
-    limits: ['limits', ['redispatch', 'unusable', 'dispatchMinutes']],
+    limits: ['limits', ['redispatch', 'unusable']],
     artifact: ['an artifact', ['file', 'guard']],
     hook: ['a hook', ['module', 'export']],
     dispatch: ['a dispatch', ['agent', 'artifact', 'message', 'outcomes']],
     plan: ['a plan stage', ['plan', 'route', 'dispatches', 'next']],
-    gate: ['a gate stage', ['gate', 'label', 'next', 'back', 'freezes', 'summary']],
+    gate: ['a gate stage', ['gate', 'label', 'next', 'back', 'freezes']],
     work: ['a work stage', ['work', 'dispatch']],
     verify: ['a verify stage', ['verify', 'dispatch', 'pass', 'fail', 'maxFailed']],
     stop: ['a stop stage', ['stop']],
@@ -84,7 +84,7 @@ export function compileLoop(file: LoopFile): { config: LoopConfig; inferred: str
     let questions: RegExp | undefined;
     if (file.questions !== undefined) {
         const q = file.questions;
-        if (typeof q !== 'string' || q.split('{n}').length !== 2 || /[/\\]|\.\./.test(q)) fail('questions', 'a plain file name in the run folder with one {n}, such as "RFC-{n}.md"');
+        if (typeof q !== 'string' || q.split('{n}').length !== 2 || /[/\\]|\.\./.test(q)) fail('questions', 'a plain file name in the run folder with one {n}, such as "Q-{n}.md"');
         questions = questionPattern(q);
     }
     hook(file.result, '/result', 'result');
@@ -151,7 +151,7 @@ export function compileLoop(file: LoopFile): { config: LoopConfig; inferred: str
     const gates: Record<string, GateConfig> = {};
     let freeze: { gate: string; i: number } | undefined;
     for (const x of list.filter((y) => y.kind === 'gate')) {
-        const { gate, label, next, back, freezes, summary } = x.s;
+        const { gate, label, next, back, freezes } = x.s;
         const at = `stage ${gate}`;
         const to = target(`${at}, next`, infer(next, ptr('gates', gate, 'next'), () => list[x.i + 1]?.name, `${at}, next`));
         const from = target(`${at}, back`, infer(back, ptr('gates', gate, 'back'), () => initial, `${at}, back`));
@@ -162,7 +162,6 @@ export function compileLoop(file: LoopFile): { config: LoopConfig; inferred: str
         }
         if (freezes !== undefined && freeze) fail(`${at}, freezes`, `gate ${freeze.gate} freezes already; one gate freezes`);
         if (freezes !== undefined) freeze = { gate, i: x.i };
-        if (summary !== undefined) hook(summary, ptr('gates', gate, 'summary'), `${at}, summary`);
         edges[gate].add(to).add(from);
     }
 
@@ -265,7 +264,6 @@ export function compileLoop(file: LoopFile): { config: LoopConfig; inferred: str
     const limits: LoopConfig['limits'] = {
         redispatch: infer(given.redispatch, '/limits/redispatch', () => 2, 'limits.redispatch'),
         unusable: infer(given.unusable, '/limits/unusable', () => 1, 'limits.unusable'),
-        ...(given.dispatchMinutes === undefined ? {} : { dispatchMinutes: given.dispatchMinutes }),
     };
     if (failed) {
         limits.failed = failed;

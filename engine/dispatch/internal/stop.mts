@@ -1,76 +1,84 @@
+import { dirname, join } from 'node:path';
+
 import type { Run } from '../../../config.mts';
 import { type Ctx, frozenFiles } from '../../context.mts';
 import { pendingQuestions } from '../../decisions/pending-questions.mts';
-import { humanEdges, type RunEdge } from '../../run/human-edges.mts';
+import { humanEdges } from '../../run/human-edges.mts';
 
 export type StopKind = 'questions' | 'gate' | 'blocked' | 'status';
 
-/** Names joined with commas and a serial "and". */
-const joined = (xs: string[]) => (xs.length < 3 ? xs.join(' and ') : `${xs.slice(0, -1).join(', ')}, and ${xs.at(-1)}`);
-const byTime = (a: [string, string], b: [string, string]) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
+/**
+ * A move the human can make now: the call that records it, what the call takes, and what it changes besides the
+ * status. `freezes` lists the files it freezes, `drops` the gate whose freeze it drops with that gate's files, and
+ * `refreezes` the answered question files it freezes again at their current bytes. Paths are as the run path names them.
+ */
+export type Move =
+    | { call: 'answer'; id: string; freezes: string[] }
+    | { call: 'gate'; gate: string; decision: 'approved' | 'rejected'; to: string; freezes?: string[]; refreezes?: string[] }
+    | { call: 'transition'; to: string; resumes?: true; retries?: true; resets?: true; drops?: { gate: string; files: string[] }; refreezes?: string[] };
 
-/** A human move into the initial state re-freezes the answered questions at their files' current bytes. */
-const refreezes = ({ cfg }: Ctx, run: Run, to: string) => (to === cfg.initial && run.questions.some((q) => q.status === 'resolved') ? ', and re-freezes the answered questions' : '');
+/** A human move the run recorded. */
+export type Recorded =
+    | { call: 'answer'; id: string; chosen: string; answer: string; at: string }
+    | { call: 'gate'; gate: string; decision: 'approved' | 'rejected'; note?: string; at: string }
+    | { call: 'transition'; from: string; to: string; note: string; at: string };
 
-/** What a human transition along `e` does, as a stop words it. */
-function effect(ctx: Ctx, run: Run, e: RunEdge): string {
-    const verb = e.resumes ? 'resumes' : e.retries ? 'retries' : 'moves to';
-    const drops = e.drops ? ` and drops the ${ctx.cfg.gates[e.drops].label} freeze on ${joined(frozenFiles(ctx, e.drops))}` : '';
-    return `${verb} ${e.to}${drops}${refreezes(ctx, run, e.to)}${e.resets ? ', and the failed count resets' : ''}`;
-}
-
-/** The human's moves from the current state, as ready-to-show lines: the stop kind's own moves, then each human edge. */
-function moves(ctx: Ctx, run: Run, kind: StopKind): string[] {
-    const lines: string[] = [];
-    if (kind === 'questions') {
-        for (const q of pendingQuestions(run)) lines.push(`\`answer\` ${q.id} with an option key or \`custom\`, and the human's words: resolves ${q.id} and freezes ${q.file}.`);
-    }
+/** The human's moves from the current state: the stop kind's own moves, then each human edge. */
+function moves(ctx: Ctx, runPath: string, run: Run, kind: StopKind): Move[] {
+    const { cfg } = ctx;
+    const inRun = (file: string) => join(dirname(runPath), file);
+    // A human move into the initial state re-freezes the answered questions.
+    const refreezes = (to: string) => {
+        const files = to === cfg.initial ? run.questions.filter((q) => q.status === 'resolved').map((q) => inRun(q.file)) : [];
+        return files.length ? { refreezes: files } : {};
+    };
+    const list: Move[] = [];
+    if (kind === 'questions') for (const q of pendingQuestions(run)) list.push({ call: 'answer', id: q.id, freezes: [inRun(q.file)] });
     if (kind === 'gate') {
-        const g = ctx.cfg.gates[run.status];
-        const files = frozenFiles(ctx, run.status);
-        lines.push(`\`gate\` ${run.status} approved, with an optional note: ${files.length ? `freezes ${joined(files)} and moves` : 'moves'} to ${g.next}.`);
-        lines.push(`\`gate\` ${run.status} rejected, with the human's note: records the note and moves back to ${g.back}${refreezes(ctx, run, g.back)}.`);
+        const g = cfg.gates[run.status];
+        const files = frozenFiles(ctx, run.status).map(inRun);
+        list.push({ call: 'gate', gate: run.status, decision: 'approved', to: g.next, ...(files.length ? { freezes: files } : {}) });
+        list.push({ call: 'gate', gate: run.status, decision: 'rejected', to: g.back, ...refreezes(g.back) });
     }
-    for (const e of humanEdges(ctx, run)) lines.push(`\`transition\` to ${e.to}, with the human's note: ${effect(ctx, run, e)}.`);
-    return lines;
+    for (const { drops, ...edge } of humanEdges(ctx, run)) {
+        list.push({ call: 'transition', ...edge, ...(drops ? { drops: { gate: drops, files: frozenFiles(ctx, drops).map(inRun) } } : {}), ...refreezes(edge.to) });
+    }
+    return list;
 }
 
-/** Every human move since the latest closed dispatch, as lines, in the order the run recorded them. */
-function recorded({ cfg }: Ctx, run: Run): string[] {
+/** Every human move since the latest closed dispatch, in the order the run recorded them. */
+function recorded({ cfg }: Ctx, run: Run): Recorded[] {
     const since = run.dispatches.findLast((d) => d.closedAt)?.closedAt ?? '';
-    const entries: [string, string][] = [
-        ...run.questions.flatMap((q): [string, string][] => (q.resolvedAt && q.resolvedAt >= since ? [[q.resolvedAt, `answer ${q.id} ${q.chosen}: "${q.answer}"`]] : [])),
-        ...Object.entries(run.gates).flatMap(([name, g]) => g.history.filter((h) => h.at >= since).map((h): [string, string] => [h.at, `gate ${name} ${h.decision}${h.note ? `: "${h.note}"` : ''}`])),
-        // A human history entry from a gate is its decision, which the gate's own history words.
-        ...run.history.filter((h) => h.human && !cfg.gates[h.from] && h.at >= since).map((h): [string, string] => [h.at, `transition ${h.from} → ${h.to}: "${h.note}"`]),
+    const entries: Recorded[] = [
+        ...run.questions.flatMap((q): Recorded[] => (q.resolvedAt && q.resolvedAt >= since ? [{ call: 'answer', id: q.id, chosen: q.chosen!, answer: q.answer!, at: q.resolvedAt }] : [])),
+        ...Object.entries(run.gates).flatMap(([gate, g]) => g.history.filter((h) => h.at >= since).map((h): Recorded => ({ call: 'gate', gate, decision: h.decision, ...(h.note ? { note: h.note } : {}), at: h.at }))),
+        // A human history entry from a gate is its decision, which the gate's own history records.
+        ...run.history.filter((h) => h.human && !cfg.gates[h.from] && h.at >= since).map((h): Recorded => ({ call: 'transition', from: h.from, to: h.to, note: h.note!, at: h.at })),
     ];
-    return entries.sort(byTime).map(([, line]) => line);
+    return entries.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
 }
 
 /**
- * A stop for the human: the kind's own fields, the human's moves, the preflight warnings while the freezing gate
- * is not approved (always, in a loop with no freezing gate), the dispatches between the last two distinct stops, and the human moves since the latest closed
- * dispatch. Repeating the same stop repeats `since` and `recorded`.
+ * A stop for the human, as data: the kind's own fields, the human's moves, the preflight warnings, the dispatches
+ * between the last two distinct stops, and the human moves since the latest closed dispatch. Repeating the same
+ * stop repeats `since` and `recorded`. The orchestrator decides how to word each field, and when to show it.
  */
-export function stop(ctx: Ctx, run: Run, kind: StopKind, fields: Record<string, unknown> = {}) {
-    const { cfg } = ctx;
+export function stop(ctx: Ctx, runPath: string, run: Run, kind: StopKind, fields: Record<string, unknown> = {}) {
     const n = run.dispatches.length;
     const m = run.stopMark ?? { from: 0, to: 0 };
     if (m.to !== n) run.stopMark = { from: m.to, to: n };
     const { from, to } = run.stopMark ?? m;
     const since = run.dispatches.slice(from, to).map((d) => {
         const minutes = d.closedAt ? Math.round((Date.parse(d.closedAt) - Date.parse(d.openedAt)) / 6000) / 10 : undefined;
-        const slow = minutes != null && cfg.limits.dispatchMinutes != null && minutes > cfg.limits.dispatchMinutes;
-        return { id: d.id, name: d.name, agent: d.agent, attempt: d.attempt, outcome: d.outcome, ...(minutes != null ? { minutes } : {}), ...(slow ? { slow: true } : {}), ...(d.note ? { note: d.note.slice(0, 300) } : {}) };
+        return { id: d.id, name: d.name, agent: d.agent, attempt: d.attempt, outcome: d.outcome, ...(minutes != null ? { minutes } : {}), ...(d.note ? { note: d.note.slice(0, 300) } : {}) };
     });
-    const frozen = cfg.freezeGate != null && run.gates[cfg.freezeGate]?.decision === 'approved';
     return {
         do: 'stop',
         stop: kind,
         status: run.status,
         ...fields,
-        moves: moves(ctx, run, kind),
-        ...(!frozen && run.warnings.length ? { warnings: run.warnings } : {}),
+        moves: moves(ctx, runPath, run, kind),
+        warnings: run.warnings,
         since,
         recorded: recorded(ctx, run),
     };

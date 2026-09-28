@@ -61,8 +61,8 @@ Run these steps from the repository root. If you followed the quick start in the
 
    ```json
    {"do":"stop","stop":"gate","status":"gate","gate":"gate","label":"Gate","freezes":["runs/example/plan.md"],
-    "moves":["`gate` gate approved, with an optional note: freezes plan.md and moves to build.","`gate` gate rejected, with the human's note: records the note and moves back to plan."],
-    "since":[{"id":1,"name":"planner","agent":"planner","attempt":1,"outcome":"ok","minutes":0}],"recorded":[]}
+    "moves":[{"call":"gate","gate":"gate","decision":"approved","to":"build","freezes":["runs/example/plan.md"]},{"call":"gate","gate":"gate","decision":"rejected","to":"plan"}],
+    "warnings":[],"since":[{"id":1,"name":"planner","agent":"planner","attempt":1,"outcome":"ok","minutes":0}],"recorded":[]}
    ```
 
 5. As the human, approve the plan. The approval freezes `plan.md`, and the run moves to `build`:

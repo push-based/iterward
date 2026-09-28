@@ -23,6 +23,7 @@ const schema: ToolSchema = {
             decision: { type: 'string', enum: ['approved', 'rejected'] },
             refs: { type: 'array', items: { type: 'string' } },
             inputs: { type: 'object', additionalProperties: { type: 'string' } },
+            entries: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'], additionalProperties: false } },
         },
         required: ['run'],
         additionalProperties: false,
@@ -35,11 +36,12 @@ test('flags turns arguments into CLI flags', () => {
 });
 
 test('a call the schema refuses never reaches the CLI, and the result lists every error', async () => {
-    const res = await createHandler(schema, () => assert.fail('the CLI ran'))({ decision: 'maybe', refs: ['a', 1], inputs: { k: true }, extra: 1 });
+    const res = await createHandler(schema, () => assert.fail('the CLI ran'))({ decision: 'maybe', refs: ['a', 1], inputs: { k: true }, entries: [{ id: 'a' }, { id: 1 }, { key: 'k' }, 'b'], extra: 1 });
     assert.equal(res.isError, true);
     assert.equal(
         text(res),
-        'probe malformed call: run is required; decision must be one of approved, rejected; refs[1] must be a string; inputs.k must be a string; unknown argument extra',
+        'probe malformed call: run is required; decision must be one of approved, rejected; refs[1] must be a string; inputs.k must be a string; ' +
+            'entries[1].id must be a string; entries[2].id is required; unknown argument entries[2].key; entries[3] must be an object; unknown argument extra',
     );
 });
 

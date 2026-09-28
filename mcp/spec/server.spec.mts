@@ -57,7 +57,7 @@ test('tools/call returns the tool result, and refuses a tool that does not exist
 });
 
 test('a refusal names each tool argument as the tool takes it, not as a CLI flag, and leaves a custom property whole', () => {
-    assert.equal(asArguments('a human transition needs --note; answer needs --option with an option key or custom; --to'), 'a human transition needs `note`; answer needs `option` with an option key or custom; `to`');
+    assert.equal(asArguments('a human transition needs --note; --answers takes a JSON array; --to'), 'a human transition needs `note`; `answers` takes a JSON array; `to`');
     assert.equal(asArguments('--ds-pr-x-note and --note-x and x--note stay'), '--ds-pr-x-note and --note-x and x--note stay');
 });
 

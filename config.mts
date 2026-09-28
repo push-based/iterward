@@ -11,26 +11,26 @@ export interface HookRef { module: string; export: string }
 export interface LoopFile {
     name: string;
     inputs: { required: string[]; optional?: string[] };
-    /** A question's file name in the run folder, with {n}, such as "RFC-{n}.md". Questions exist only at the initial state. */
+    /** A question's file name in the run folder, with {n}, such as "Q-{n}.md". Questions exist only at the initial state. */
     questions?: string;
     /** Runs on `new`, before the run exists. */
     preflight?: HookRef;
     /** Reads a dispatch's status from the document the dispatch declares. */
     result: HookRef;
-    /** Runs at `answer`, before the engine records the answer and freezes the question file. */
+    /** Runs at `answer`, once for each answer of the call, before the engine freezes the question file and records the answer. */
     onAnswer?: HookRef;
     /** `file` is a plain file name in the run folder; it can hold {attempt}. */
     artifacts: Record<string, { file: string; guard?: HookRef }>;
     stages: StageDef[];
     /** One validator per state, run on every transition into that state. */
     validators?: Record<string, HookRef>;
-    limits?: { redispatch?: number; unusable?: number; dispatchMinutes?: number };
+    limits?: { redispatch?: number; unusable?: number };
 }
 
 /** One stage of a loop. The key that names the kind also names the state; every target a stage leaves out is inferred. */
 export type StageDef =
     | { plan: string; route: HookRef; dispatches: Record<string, DispatchDef>; next?: string | string[] }
-    | { gate: string; label: string; next?: string; back?: string; freezes?: string[]; summary?: HookRef }
+    | { gate: string; label: string; next?: string; back?: string; freezes?: string[] }
     | { work: string; dispatch: DispatchDef }
     | { verify: string; dispatch: DispatchDef; pass?: string; fail?: string; maxFailed?: number }
     | { stop: string }
@@ -83,11 +83,11 @@ export type Validator = (ctx: HookContext & { from: string; to: string; human: b
 /** The plan stage's route: the next dispatch, with values for its message, or the gate to enter. */
 export type Route = (ctx: HookContext) => Awaitable<{ dispatch: string; with?: Record<string, string> } | { gate: string; onRefusal: string }>;
 
-/** Writes the human's answer into the question file. A throw refuses the answer and records nothing. */
+/**
+ * Writes the human's answer into the question file. A throw refuses the whole `answer` call, and the run records
+ * none of its answers. The engine doesn't undo what the hook wrote for the call's earlier answers.
+ */
 export type OnAnswer = (ctx: HookContext & { question: { id: string; file: string }; option: string; answer: string }) => Awaitable<void>;
-
-/** Lines the gate stop shows before the human decides. */
-export type GateSummary = (ctx: HookContext & { gate: string }) => Awaitable<string[]>;
 
 // ---- The run record: run.json, which the engine writes.
 
@@ -124,15 +124,13 @@ export interface Dispatch {
 /** A move a human can make with `transition`; `drops` names the gate whose freeze the move drops. */
 export interface HumanEdge { to: string; drops?: string; resets?: true; retries?: true }
 
-export interface GateConfig { label: string; next: string; back: string; freezes: string[]; summary?: GateSummary }
+export interface GateConfig { label: string; next: string; back: string; freezes: string[] }
 
 export interface DispatchConfig { agent: string; artifact: string; message: string; outcomes: Record<string, Action> }
 
 export interface Limits {
     redispatch: number;
     unusable: number;
-    /** A dispatch that ran longer is `slow` in a stop's `since`. */
-    dispatchMinutes?: number;
     /** From a verify stage's `maxFailed`: `max` failed verdicts of `stage` since the last human move into `at` park the run. */
     failed?: { stage: string; at: string; max: number };
 }

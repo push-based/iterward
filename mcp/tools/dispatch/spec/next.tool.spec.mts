@@ -6,5 +6,5 @@ import { nextTool } from '../next.tool.mts';
 
 test('next returns the first dispatch of a run', async () => {
     const move = json(await nextTool.handler({ run: startedRun() }));
-    assert.deepEqual([move.do, move.agent], ['dispatch', 'l2-discovery']);
+    assert.deepEqual([move.do, move.agent], ['dispatch', 'scout']);
 });

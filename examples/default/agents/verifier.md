@@ -2,23 +2,19 @@
 name: verifier
 description: >-
   <!-- TODO: one paragraph: when the orchestrator calls it and what it judges -->
-tools: ["read", "write", "shell"]
-permissions:
-  rules:
-    - capability: fs_write
-      match: ["<RUNS_DIR>/*/run.json", "<RUNS_DIR>/*/out/**", "<RUNS_DIR>/*/plan.md", "<RUNS_DIR>/*/Q-*.md", "<RUNS_DIR>/*/build.*.md", "<AGENTS_DIR>/**", "<LOOPLOCK_DIR>/**", "<LOOP_DIR>/**", "<SOURCE_DIR>/**"]
-      effect: deny
-    - capability: shell
-      match: ["<CHECK_COMMAND> *"]
-      effect: allow
-welcomeMessage: <WELCOME_MESSAGE>
-resources:
-  - "file://<RESOURCE_PATH>"
 ---
 
 # verifier
 
 <!-- TODO: role -->
+
+## Permissions
+
+<!-- Map these rules to the permission settings of your agent harness. -->
+
+- **Tools.** Read, write, and shell.
+- **Writes.** Never write `<RUNS_DIR>/*/run.json`, `<RUNS_DIR>/*/out/**`, `<RUNS_DIR>/*/plan.md`, `<RUNS_DIR>/*/Q-*.md`, `<RUNS_DIR>/*/build.*.md`, `<AGENTS_DIR>/**`, `<LOOPLOCK_DIR>/**`, `<LOOP_DIR>/**`, or `<SOURCE_DIR>/**`.
+- **Shell.** Run only `<CHECK_COMMAND>`.
 
 ## Content trust boundary
 

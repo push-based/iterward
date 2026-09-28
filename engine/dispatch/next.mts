@@ -1,7 +1,7 @@
 import { dirname, join } from 'node:path';
 
 import type { Run } from '../../config.mts';
-import { type Ctx, frozenFiles, hookCtx } from '../context.mts';
+import { type Ctx, frozenFiles } from '../context.mts';
 import { pendingQuestions } from '../decisions/pending-questions.mts';
 import { FreezeError } from '../run/freezes.mts';
 import { transition } from '../run/transition.mts';
@@ -22,10 +22,10 @@ export async function next(ctx: Ctx, runPath: string, run: Run): Promise<object>
     if (o) return dispatchOut(o);
     const s = run.status;
     const inRun = (file: string) => join(dirname(runPath), file);
-    if (s === 'blocked') return stop(ctx, run, 'blocked', { blockedFrom: run.blockedFrom, reason: run.history.findLast((h) => h.to === 'blocked')?.note });
+    if (s === 'blocked') return stop(ctx, runPath, run, 'blocked', { blockedFrom: run.blockedFrom, reason: run.history.findLast((h) => h.to === 'blocked')?.note });
     if (s === cfg.initial) {
         const pending = pendingQuestions(run);
-        if (pending.length) return stop(ctx, run, 'questions', { questions: pending.map((q) => ({ id: q.id, file: inRun(q.file) })) });
+        if (pending.length) return stop(ctx, runPath, run, 'questions', { questions: pending.map((q) => ({ id: q.id, file: inRun(q.file) })) });
         const move = await planMove(ctx, runPath, run);
         if ('dispatch' in move) return open(ctx, runPath, run, move.dispatch, move.with ? { with: move.with } : {});
         try {
@@ -38,11 +38,8 @@ export async function next(ctx: Ctx, runPath: string, run: Run): Promise<object>
         return next(ctx, runPath, run);
     }
     const g = cfg.gates[s];
-    if (g) {
-        const summary = g.summary ? { summary: await g.summary({ ...hookCtx(runPath, run), gate: s }) } : {};
-        return stop(ctx, run, 'gate', { gate: s, label: g.label, freezes: frozenFiles(ctx, s).map(inRun), ...summary });
-    }
-    if (cfg.stops.includes(s)) return stop(ctx, run, 'status');
+    if (g) return stop(ctx, runPath, run, 'gate', { gate: s, label: g.label, freezes: frozenFiles(ctx, s).map(inRun) });
+    if (cfg.stops.includes(s)) return stop(ctx, runPath, run, 'status');
     const lim = cfg.limits.failed;
     if (lim && s === lim.at && failedSince(ctx, run) >= lim.max) {
         const report = run.dispatches.findLast((d) => d.name === cfg.byStatus[lim.stage])?.document ?? 'none';
@@ -50,7 +47,7 @@ export async function next(ctx: Ctx, runPath: string, run: Run): Promise<object>
     }
     const d = cfg.byStatus[s];
     if (d) return open(ctx, runPath, run, d);
-    return stop(ctx, run, 'status');
+    return stop(ctx, runPath, run, 'status');
 }
 
 /** Park the run with `note`, and return the blocked stop. */

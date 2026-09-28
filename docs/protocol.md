@@ -6,7 +6,7 @@ The engine checks these rules against the run file on every call. A loop file na
 
 Looplock makes one promise:
 
-> Looplock guarantees that a run moves only along the transitions its loop declares, and it records every human move. It doesn't judge a verdict or prove who made a move: the consumer's validators guard honest verdicts, and the MCP client authorizes each human move interactively. A consumer's preflight can refuse the client configurations it knows to approve human moves automatically, as the FDS Kiro integration does. Neither the engine nor a consumer can prove that a human clicked.
+> Looplock guarantees that a run moves only along the transitions its loop declares, and it records every human move. It doesn't judge a verdict or prove who made a move: the consumer's validators guard honest verdicts, and the MCP client authorizes each human move interactively. A consumer's preflight can refuse the client configurations it knows to approve human moves automatically. Neither the engine nor a consumer can prove that a human clicked.
 
 ## Terms
 
@@ -42,21 +42,21 @@ A refused gate entry or validator during an agent's outcome or the route re-disp
 
 ### Human moves
 
-A human has three moves: `answer` a question, approve or reject a `gate` with a note, and `transition` along a human edge with a note. The compiler gives each state its human edges:
+A human has three moves: `answer` questions, approve or reject a `gate` with a note, and `transition` along a human edge with a note. The compiler gives each state its human edges:
 
 - Every stage after the freezing gate, except an end stage, has an edge back to the gate's `back`, which drops the gate's freeze.
 - A stop stage after a verify stage, and the verify stage itself, have an edge that retries the verify stage's `fail`.
 - An edge into the stage that `maxFailed` guards resets the failed count.
 - A blocked run resumes into the state it blocked from, or takes a human edge of that state. It leaves `blocked` no other way.
 
-Every stop lists the human's moves from the current state as lines, with the effect of each, and the preflight warnings while the freezing gate isn't approved. A loop with no freezing gate always shows them. The orchestrator shows both word for word.
+Every stop lists the human's moves from the current state as data: the call that records each move, the arguments the call takes, and what the call changes besides the status. Every stop also carries the preflight warnings. The orchestrator words the moves for the human, and decides when to show the warnings.
 
 ### Gates and questions
 
 - An approval runs the frozen artifacts' guards with `event: 'approve'`, records the sha256 of each frozen file, freezes those files, and moves the run to the gate's `next`.
 - A rejection needs a note, records it, and moves the run to the gate's `back`. Nothing freezes.
 - At `result`, while the run is at the initial state, each new file that matches `questions` joins the ledger as pending.
-- An answer needs the initial state and a pending question. The loop's `onAnswer` hook writes the answer into the question file, and then the engine resolves the question and freezes its file. A throw from the hook records nothing.
+- An `answer` call records one or more answers, all or none, at the initial state. The engine checks every answer first and refuses the call with every problem: a question that isn't pending, an empty option or answer, or a question that appears twice. Then, for each answer in order, the loop's `onAnswer` hook writes it into the question file, and the engine freezes the file and resolves the question. A throw from the hook refuses the call, and the run records none of its answers. The engine doesn't undo what the hook wrote for the call's earlier answers.
 
 ### Results
 

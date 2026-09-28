@@ -21,7 +21,7 @@ To register a built copy with Claude Code, add it to the `.mcp.json` file in the
 
 Replace `LOOPLOCK_DIR` with the directory of the copy.
 
-A client that approves tool calls automatically, such as through an `autoApprove` list, must list only the machine moves: `new`, `next`, `result`, `validate`, and `show`. The client then asks the human to allow each `answer`, `gate`, and `transition`, the human moves Looplock records.
+A client that approves tool calls automatically, such as through an `autoApprove` list, must list only the machine moves: `new`, `next`, `result`, `validate`, and `show`. The client then asks the human to allow each `answer`, `gate`, and `transition`, the human moves Looplock records. One `answer` call carries every answer of one human message, so the human allows the answers once. When the client offers to always allow one of these three tools, decline, because an always-allowed tool runs without asking the human.
 
 ## Tools and arguments
 
@@ -34,7 +34,7 @@ The server has 8 tools, one for each command except `compile` and `--version`. E
 | `result` | `run` |
 | `show` | `run` |
 | `validate` | `artifact` and `run` |
-| `answer` | `run`, `id`, `option`, and `answer` |
+| `answer` | `run` and `answers`, a list with one `{ id, option, answer }` object for each question the human answered, at least 1 |
 | `gate` | `gate`, `run`, `decision`, and `note` |
 | `transition` | `run`, `to`, and `note` |
 
