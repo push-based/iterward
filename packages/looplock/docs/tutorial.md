@@ -23,7 +23,7 @@ To see each step's outcomes and their targets, run `node bin.mts compile --confi
 
 ## Take a run to done
 
-Run these steps from the repository root. If you followed the quick start in the README, your run is ready for step 3.
+Run these steps from the `packages/looplock` folder. If you followed the quick start in the README, your run is ready for step 3.
 
 1. Start a run:
 

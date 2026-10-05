@@ -16,7 +16,7 @@ Before the first question, read [references/loop-file.md](references/loop-file.m
 
 Find the facts yourself instead of asking for them:
 
-- **The looplock CLI.** Use the first that exists: `node_modules/.bin/looplock` in the working directory (run it as `npx looplock`), `bin.mts` in the working directory when it is the Looplock repository (run it as `node bin.mts`), or `bin.mts` two directories up from this skill's real path (`realpath` the skill directory first, because the skill can be a symlink). If none exists, tell the user the file can't be compiled here and ask where Looplock is installed.
+- **The looplock CLI.** Use the first that exists: `node_modules/.bin/looplock` in the working directory (run it as `npx looplock`), `bin.mts` in the working directory when it is the Looplock package folder (run it as `node bin.mts`), or `bin.mts` two directories up from this skill's real path (`realpath` the skill directory first, because the skill can be a symlink). If none exists, tell the user the file can't be compiled here and ask where Looplock is installed.
 - **Existing loops.** Search for `*.loop.json` and `hooks.mts` files. If the user is extending one, start the draft from it instead of a blank page.
 - **Agents.** Look for agent definitions (`agents/*.md`, `.claude/agents/*.md`, `AGENTS.md`). Reuse their names as step agents so the loop matches what the orchestrator dispatches.
 
