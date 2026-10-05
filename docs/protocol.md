@@ -59,7 +59,7 @@ Every stop lists the human's moves as data: the call that records each move, the
 
 ### Results
 
-`result` closes the open dispatch and follows the machine:
+`result` closes the open dispatch and follows the machine. Called with a dispatch id, it first refuses, before any hook runs, unless that dispatch is the open one. It returns `closed`, the dispatch it closed with its outcome, and the next move.
 
 1. **Freshness.** The document must exist, written no earlier than its dispatch opened.
 2. **Guard.** The artifact's guard runs with `event: 'result'`, and returns the status or the errors.
@@ -87,3 +87,7 @@ A step opens at most `limits.opens` times since the latest human move: a gate de
 ### The loop file
 
 A run records one sha256 over its loop file and every hook module, with each module's local static imports, transitively. The CLI refuses every command of a run after any of them changes, so start a new run after you edit a loop.
+
+### The run file
+
+For how commands lock and save the run, see [One command at a time](cli.md#one-command-at-a-time).

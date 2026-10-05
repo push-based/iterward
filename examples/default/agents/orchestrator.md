@@ -29,7 +29,7 @@ description: >-
 
 Loop: run `next --run <RUN>`, and act on the `do` field of its output.
 
-1. **`dispatch`.** Call the sub-agent that `agent` names with exactly `message`, then run `result --run <RUN>`.
+1. **`dispatch`.** Call the sub-agent that `agent` names with exactly `message`, then run `result --run <RUN> --id <ID>`, with the dispatch's `id`.
 2. **`stop`.** Show the stop to the human as the Stops section describes, and wait for the human's move.
 
 Done when: <!-- TODO -->

@@ -21,7 +21,8 @@
  *     the step; an unusable or refused result, or a refused transition, opens the same step again,
  *   - a step opens at most `limits.opens` times since the last human move, then the run parks,
  *   - a blocked run leaves only by a human move, and a move to blocked needs a note,
- *   - a run refuses to go on under a changed loop file or hook module.
+ *   - a run refuses to go on under a changed loop file or hook module,
+ *   - run.json is replaced whole, through a temporary file and a rename.
  */
 
 import type { LoopConfig } from './config.mts';
@@ -42,11 +43,12 @@ export * from './config.mts';
 export { printable } from './compile-loop.mts';
 export { loadLoop } from './load-config.mts';
 export { pendingQuestions } from './engine/decisions/pending-questions.mts';
+export { openDispatch } from './engine/dispatch/internal/open-dispatch.mts';
 export { FreezeError } from './engine/run/freezes.mts';
 export { group, spill } from './engine/spill.mts';
 export { hasText, sha256 } from './engine/util.mts';
 
-export const VERSION = '0.3.0';
+export const VERSION = '0.4.0';
 
 /** The operations of one loop, each bound to the context built from it. */
 export function loop(cfg: LoopConfig) {
