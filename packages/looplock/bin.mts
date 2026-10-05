@@ -8,8 +8,11 @@
  *   new         --config <loop.json> --run <run.json> [--<input> <value> …]      runs the loop's preflight first
  *   compile     --config <loop.json>   the compiled loop: each step's outcomes resolved from machine
  *   next        --run <run.json>       the move the run needs: {do: dispatch|stop, …}
- *   result      --run <run.json>       runs the open step's guard on its document and follows the machine
+ *   result      --run <run.json> [--id <N>]   runs the open step's guard on its document and follows the machine;
+ *                                      prints {closed: {id, step, outcome}, …the next move}. With --id, refuses
+ *                                      before any hook unless dispatch N is the open one
  *   show        --run <run.json>       the run's state
+ *   dispatch    --run <run.json>       the open dispatch: {id, step, agent, attempt, document, openedAt, message}
  *   validate    <artifact> --run <run.json>        `ok`, or the artifact guard's error lines with exit 2
  *   answer      --run <run.json> --id <ID> --option <KEY|custom> --answer <the human's words>
  *   answer      --run <run.json> --answers <JSON array of {id, option, answer}>   records all of them or none
@@ -19,14 +22,16 @@
  *
  * Run it from the repository root. Each command prints one line of JSON, except `validate`, which prints text.
  * Exit 0 ok, 2 refused (the reason on stderr, its lines grouped), 1 usage error. A refusal over 20,000
- * characters goes whole to <run folder>/out/, and stderr keeps its first 40 lines and names the file.
+ * characters goes whole to <run folder>/out/, and stderr keeps its first 40 lines, each cut to 400 characters,
+ * and names the file. `next`, `result`, `answer`, `gate`, and `transition` change the run one at a time: each
+ * holds <run>.lock while it runs, and refuses while a live process holds it.
  */
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { group, loadLoop, loop, pendingQuestions, printable, spill, VERSION, type Run } from './engine.mts';
+import { group, loadLoop, loop, openDispatch, pendingQuestions, printable, spill, VERSION, type Run } from './engine.mts';
 
 /** Commands whose second word is a name. */
 const NAMED = new Set(['validate', 'gate']);
@@ -74,12 +79,73 @@ async function open(a: Record<string, any>) {
     return { L, r: L.loadRun(a.run) };
 }
 
-/** Load the run, apply `fn`, and save the run: a refused command changes nothing. */
+const alive = (pid: number) => {
+    try {
+        process.kill(pid, 0);
+        return true;
+    } catch (e) {
+        return (e as NodeJS.ErrnoException).code === 'EPERM';
+    }
+};
+
+/** Blocks for `ms` milliseconds. */
+const pause = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
+/**
+ * Take `<run>.lock` for `command`, and return its release. The lock is created exclusively. A lock that a live process
+ * other than this one holds refuses the command. A lock whose process is gone, that names this process (a container
+ * reuses PIDs), or that stays empty or unreadable is stale, and the command takes it over once. The release removes
+ * the lock only while it is still this command's.
+ */
+function lock(run: string, command: string): () => void {
+    const file = `${run}.lock`;
+    const text = JSON.stringify({ pid: process.pid, command, at: new Date().toISOString() });
+    const read = () => {
+        try {
+            return readFileSync(file, 'utf8');
+        } catch (e) {
+            if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null;
+            throw e;
+        }
+    };
+    for (let tookOver = false; ; ) {
+        try {
+            writeFileSync(file, text, { flag: 'wx' });
+            return () => {
+                if (read() === text) rmSync(file, { force: true });
+            };
+        } catch (e) {
+            if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
+        }
+        let held = read();
+        if (held === '') {
+            pause(100); // created by its command, but not yet written
+            held = read();
+        }
+        if (held === null) continue; // its command ended meanwhile
+        let h: Record<string, any> = {};
+        try {
+            h = JSON.parse(held);
+        } catch {}
+        if (tookOver || (Number.isInteger(h.pid) && h.pid !== process.pid && alive(h.pid))) throw new Error(`another looplock command (${h.command}, pid ${h.pid}, since ${h.at}) holds ${file}; run this one again after it ends, or delete ${file} when no such process runs`);
+        if (read() === held) rmSync(file, { force: true });
+        tookOver = true;
+    }
+}
+
+/** Under the run's lock, load the run, apply `fn`, and save the run: a refused command changes nothing. */
 async function change(a: Record<string, any>, fn: (L: ReturnType<typeof loop>, r: Run) => unknown) {
-    const { L, r } = await open(a);
-    const out = await fn(L, r);
-    L.saveRun(a.run, r);
-    return out;
+    req(a, ['run']);
+    if (!existsSync(a.run)) throw new Error(`no run at ${a.run}`);
+    const unlock = lock(a.run, a._);
+    try {
+        const { L, r } = await open(a);
+        const out = await fn(L, r);
+        L.saveRun(a.run, r);
+        return out;
+    } finally {
+        unlock();
+    }
 }
 
 const COMMANDS: Record<string, (a: Record<string, any>) => Promise<unknown>> = {
@@ -100,10 +166,20 @@ const COMMANDS: Record<string, (a: Record<string, any>) => Promise<unknown>> = {
         return { config: printable(config) };
     },
     next: (a) => change(a, (L, r) => L.next(a.run, r)),
-    result: (a) => change(a, (L, r) => L.result(a.run, r)),
+    async result(a) {
+        if (a.id != null && !/^[1-9]\d*$/.test(a.id)) throw new Usage('result --id takes a dispatch id, such as 3');
+        return change(a, (L, r) => L.result(a.run, r, a.id == null ? undefined : Number(a.id)));
+    },
     async show(a) {
         const { L, r } = await open(a);
         return L.show(r);
+    },
+    // Read only: no lock, no save, and no spill file.
+    async dispatch(a) {
+        const { r } = await open(a);
+        const d = openDispatch(r);
+        if (!d) throw new Error('no open dispatch');
+        return { id: d.id, step: d.name, agent: d.agent, attempt: d.attempt, document: d.document, openedAt: d.openedAt, message: d.message };
     },
     async validate(a) {
         const { L, r } = await open(a);
@@ -173,8 +249,8 @@ export async function main(argv = process.argv.slice(2)) {
             return;
         }
         const text = group((e as Error).message.split('\n'));
-        // A refused `new` spills nowhere: its run folder must stay as it was.
-        console.error(a.run && a._ !== 'new' ? spill(dirname(a.run), a._, text) : text);
+        // A refused `new` spills nowhere, so its run folder stays as it was, and `dispatch` writes nothing.
+        console.error(a.run && a._ !== 'new' && a._ !== 'dispatch' ? spill(dirname(a.run), a._, text) : text);
         process.exitCode = 2;
     }
 }

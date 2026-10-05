@@ -60,7 +60,7 @@ test('stops are data: each kind prints its fields, its moves, and the warnings; 
     env.write('Q-2.md', 'pending');
     env.write('plan.md', 'needs-decisions');
     const questions = await env.result();
-    assert.deepEqual(Object.keys(questions), ['do', 'stop', 'status', 'questions', 'moves', 'warnings', 'since', 'recorded']);
+    assert.deepEqual(Object.keys(questions), ['closed', 'do', 'stop', 'status', 'questions', 'moves', 'warnings', 'since', 'recorded']);
     assert.deepEqual(questions.moves, [{ call: 'answer', id: 'Q-1', freezes: inRun('Q-1.md') }, { call: 'answer', id: 'Q-2', freezes: inRun('Q-2.md') }]);
     assert.deepEqual([questions.status, questions.warnings, questions.recorded], ['revision', warnings, []]);
     assert.deepEqual(questions.since.map((d: any) => [d.id, d.name, d.agent, d.attempt, d.outcome]), [[1, 'discovery', 'scout', 1, 'ok'], [2, 'draft', 'planner', 1, 'needs-decisions']]);
@@ -76,23 +76,24 @@ test('stops are data: each kind prints its fields, its moves, and the warnings; 
     assert.equal((await env.next()).agent, 'planner');
     env.write('plan.md');
     const gate = await env.result();
-    assert.deepEqual(Object.keys(gate), ['do', 'stop', 'status', 'gate', 'label', 'freezes', 'moves', 'warnings', 'since', 'recorded']);
+    assert.deepEqual(Object.keys(gate), ['closed', 'do', 'stop', 'status', 'gate', 'label', 'freezes', 'moves', 'warnings', 'since', 'recorded']);
     assert.deepEqual(gate.moves, [
         { call: 'gate', gate: 'gate', decision: 'approved', to: 'build', freezes: frozen },
         { call: 'gate', gate: 'gate', decision: 'rejected', to: 'revision' },
     ]);
+    await tick();
     await env.L.reject(env.runPath, env.run, 'gate', 'group C2 is wrong');
     assert.match((await env.next()).message, /\nNote: group C2 is wrong\n/);
     env.write('plan.md', 'ok', 'group C2 split\n');
     const again = await env.result();
-    assert.deepEqual(Object.keys(again), ['do', 'stop', 'status', 'gate', 'label', 'freezes', 'last', 'changed', 'moves', 'warnings', 'since', 'recorded']);
+    assert.deepEqual(Object.keys(again), ['closed', 'do', 'stop', 'status', 'gate', 'label', 'freezes', 'last', 'changed', 'moves', 'warnings', 'since', 'recorded']);
     assert.deepEqual([again.last.decision, again.changed, again.since.map((d: any) => d.name)], ['rejected', inRun('plan.md'), ['revision']]);
 
     await env.L.approve(env.runPath, env.run, 'gate', 'ship it');
     await env.next();
     env.write('build.1.report.md', 'blocked');
     const blocked = await env.result();
-    assert.deepEqual(Object.keys(blocked), ['do', 'stop', 'status', 'blockedFrom', 'reason', 'moves', 'warnings', 'since', 'recorded']);
+    assert.deepEqual(Object.keys(blocked), ['closed', 'do', 'stop', 'status', 'blockedFrom', 'reason', 'moves', 'warnings', 'since', 'recorded']);
     assert.deepEqual(blocked.moves, [
         { call: 'transition', to: 'build', resumes: true },
         { call: 'transition', to: 'revision', drops: { gate: 'gate', files: frozen } },
@@ -106,7 +107,7 @@ test('stops are data: each kind prints its fields, its moves, and the warnings; 
     await env.result();
     env.write('verify-build.1.report.md', 'pass');
     const status = await env.result();
-    assert.deepEqual(Object.keys(status), ['do', 'stop', 'status', 'moves', 'warnings', 'since', 'recorded']);
+    assert.deepEqual(Object.keys(status), ['closed', 'do', 'stop', 'status', 'moves', 'warnings', 'since', 'recorded']);
     assert.deepEqual([status.stop, status.status], ['status', 'release']);
     assert.deepEqual(status.moves, [
         { call: 'transition', to: 'revision', drops: { gate: 'gate', files: frozen } },

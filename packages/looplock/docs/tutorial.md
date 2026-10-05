@@ -57,10 +57,10 @@ Run these steps from the `packages/looplock` folder. If you followed the quick s
    node bin.mts result --run runs/example/run.json
    ```
 
-   The plan says `ok`, so the machine moves the run into the gate, and the run stops for your decision. The stop lists your moves and the file an approval freezes:
+   The plan says `ok`, so the machine moves the run into the gate, and the run stops for your decision. `closed` names the dispatch the result closed and its outcome. The stop lists your moves and the file an approval freezes:
 
    ```json
-   {"do":"stop","stop":"gate","status":"gate","gate":"gate","label":"Gate","freezes":["runs/example/plan.md"],
+   {"closed":{"id":1,"step":"plan","outcome":"ok"},"do":"stop","stop":"gate","status":"gate","gate":"gate","label":"Gate","freezes":["runs/example/plan.md"],
     "moves":[{"call":"gate","gate":"gate","decision":"approved","to":"build","freezes":["runs/example/plan.md"]},{"call":"gate","gate":"gate","decision":"rejected","to":"plan"}],
     "warnings":[],"since":[{"id":1,"name":"plan","agent":"planner","attempt":1,"outcome":"ok","minutes":0}],"recorded":[]}
    ```
@@ -94,7 +94,7 @@ Run these steps from the `packages/looplock` folder. If you followed the quick s
    The run moves back to `build`, and the CLI dispatches the builder again. The retry writes a new document, so the first one stays:
 
    ```json
-   {"do":"dispatch","id":4,"agent":"builder","message":"Step: build\nRun: runs/example/run.json\nDocument: runs/example/build.2.md\nInputs:\n  subject: the settings page\nNote: none\nFixes: none"}
+   {"closed":{"id":3,"step":"verify","outcome":"fail"},"do":"dispatch","id":4,"agent":"builder","message":"Step: build\nRun: runs/example/run.json\nDocument: runs/example/build.2.md\nInputs:\n  subject: the settings page\nNote: none\nFixes: none"}
    ```
 
 9. As the builder, write the second document, and record it:

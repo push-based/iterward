@@ -27,4 +27,4 @@ To release from your own machine instead, log in to npm with `npm login`, set th
 
 ### Make the first release
 
-No `v*` tag exists before the first release, so Nx can't find a starting point in the history. For the first release, enter `0.3.0` in **Version to release**, and select **First release**. Nx then tags the version that `packages/looplock/package.json` holds. Later releases start from that tag and need neither input.
+No `v*` tag exists before the first release, so Nx can't find a starting point in the history. For the first release, enter `0.4.0` in **Version to release**, and select **First release**. Nx then tags the version that `packages/looplock/package.json` holds. Later releases start from that tag and need neither input.
