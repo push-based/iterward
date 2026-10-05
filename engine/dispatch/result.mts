@@ -1,6 +1,6 @@
 import { existsSync, statSync } from 'node:fs';
 
-import type { Run } from '../../config.mts';
+import type { Dispatch, Run } from '../../config.mts';
 import { type Ctx, hookCtx } from '../context.mts';
 import { pendingQuestions } from '../decisions/pending-questions.mts';
 import { scanQuestions } from '../decisions/scan-questions.mts';
@@ -12,16 +12,25 @@ import { info, openDispatch } from './internal/open-dispatch.mts';
 import { next, parked } from './next.mts';
 
 /**
- * Close the open dispatch and follow the machine. The document must be fresh: written during the dispatch. Its
- * artifact's guard returns the status, which must be an outcome of the step, or the errors that refuse it. New
- * question files enter the ledger. Then the outcome's target: `park`, `{ask}` (refused when no question is
- * pending), or a transition. Every failure closes the dispatch with the lines to fix, and `next` opens the same
- * step again, until `limits.opens` parks the run.
+ * Close the open dispatch and follow the machine. With `id`, the open dispatch must be that one, checked before
+ * any hook runs. The document must be fresh: written during the dispatch. Its artifact's guard returns the status,
+ * which must be an outcome of the step, or the errors that refuse it. New question files enter the ledger. Then
+ * the outcome's target: `park`, `{ask}` (refused when no question is pending), or a transition. Every failure
+ * closes the dispatch with the lines to fix, and `next` opens the same step again, until `limits.opens` parks the
+ * run. Returns `closed`, the dispatch with the outcome it closed with, and the next move.
  */
-export async function result(ctx: Ctx, runPath: string, run: Run): Promise<object> {
-    const { cfg } = ctx;
+export async function result(ctx: Ctx, runPath: string, run: Run, id?: number): Promise<object> {
     const d = openDispatch(run);
+    // No `: ` in the line, because a refusal's lines are grouped by the text before it.
+    if (id !== undefined && d?.id !== id) throw new Error(`dispatch ${id} isn't open (${d ? `dispatch ${d.id} is` : 'no open dispatch'})`);
     if (!d) throw new Error('no open dispatch: run next first');
+    const move = await follow(ctx, runPath, run, d);
+    return { closed: { id: d.id, step: d.name, outcome: d.outcome }, ...move };
+}
+
+/** Close `d` with its outcome and return the next move. */
+async function follow(ctx: Ctx, runPath: string, run: Run, d: Dispatch): Promise<object> {
+    const { cfg } = ctx;
     const step = cfg.steps[d.name];
     const dispatch = info(d);
     const failed = (outcome: string, fixes: string[]) => {

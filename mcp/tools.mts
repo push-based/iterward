@@ -8,7 +8,7 @@ import { transitionTool } from './tools/run/transition.tool.mts';
 import { validateTool } from './tools/run/validate.tool.mts';
 import { showTool } from './tools/views/show.tool.mts';
 
-/** One tool per CLI command but `compile` and `--version`, in the order of the CLI's usage line. */
+/** One tool per CLI command but `compile`, `dispatch`, and `--version`, in the order of the CLI's usage line. */
 export const TOOLS: Tool[] = [newTool, nextTool, resultTool, showTool, validateTool, answerTool, gateTool, transitionTool];
 
 /** The CLI flag of each argument a tool takes. */

@@ -25,13 +25,13 @@ A client that approves tool calls automatically, such as through an `autoApprove
 
 ## Tools and arguments
 
-The server has 8 tools, one for each command except `compile` and `--version`. Each tool takes its command's flags as arguments:
+The server has 8 tools, one for each command except `compile`, `dispatch`, and `--version`. Each tool takes its command's flags as arguments:
 
 | Tool | Arguments |
 | --- | --- |
 | `new` | `config`, `run`, and `inputs`, the loop inputs as one object, such as `{"subject": "the settings page"}` |
 | `next` | `run` |
-| `result` | `run` |
+| `result` | `run`, and optionally `id`, the dispatch the call closes, from `next` |
 | `show` | `run` |
 | `validate` | `artifact` and `run` |
 | `answer` | `run` and `answers`, a list with one `{ id, option, answer }` object for each question the human answered, at least 1 |
@@ -40,10 +40,10 @@ The server has 8 tools, one for each command except `compile` and `--version`. E
 
 Only `show` carries `readOnlyHint: true`. `next` opens dispatches, and `validate` runs guards, which can write files. For each command, see [CLI reference](cli.md).
 
-The server has no tool for `compile`, because an agent that drives a run doesn't need the compiled loop. To review it, run the `compile` command of the CLI.
+The server has no tool for `compile`, because an agent that drives a run doesn't need the compiled loop. To review it, run the `compile` command of the CLI. It has no tool for `dispatch` either: a harness's watcher reads the open dispatch through the CLI.
 
 A tool returns the command's output as text. A refusal returns an error result whose text starts with the tool name and `refused:`. A malformed call, such as a missing or unknown argument, returns one whose text starts with the tool name and `malformed call:`. An error text names each argument as the tool takes it, such as `note`, where the CLI prints the flag `--note`.
 
-The server handles one request at a time, so two tool calls on one run never interleave their reads and writes of the run file.
+The server handles one request at a time. Across processes, such as the server and a watcher that runs the CLI, the run's lock lets one command change the run at a time, and a command refused by the lock comes back as a refusal. For the lock, see [One command at a time](cli.md#one-command-at-a-time).
 
-Set the client's request timeout above the longest hook. A `result` or a `transition` waits for every guard and `onEnter` hook it runs. The server doesn't cancel a command, so a call the client gave up on still finishes and changes the run.
+Set the client's request timeout above the longest hook. A `result` or a `transition` waits for every guard and `onEnter` hook it runs. The server doesn't cancel a command, so a call the client gave up on still finishes and changes the run. Pass `id` to `result`: a call retried after a timeout then refuses, instead of closing the dispatch the first call opened.

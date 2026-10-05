@@ -17,12 +17,18 @@ const FIXTURE = fileURLToPath(new URL('../../spec/loop/fixture.loop.json', impor
 
 /**
  * The hooks: each guard returns the lines of `errors.txt` in the run folder as errors, or else the frontmatter
- * status, `onAnswer` refuses the option `Z`, and the preflight warns, and refuses the subject `bad`.
+ * status, `onAnswer` refuses the option `Z`, and the preflight warns, and refuses the subject `bad`. While the run
+ * folder holds `wait.txt`, each guard call first writes `guard.<PID>.txt` there, then waits the milliseconds
+ * `wait.txt` names.
  */
-const HOOKS = `import { existsSync, readFileSync } from 'node:fs';
+const HOOKS = `import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { statusOf } from './status.mjs';
-export const guard = (path, { runDir }) => {
+export const guard = async (path, { runDir }) => {
+    if (existsSync(join(runDir, 'wait.txt'))) {
+        writeFileSync(join(runDir, 'guard.' + process.pid + '.txt'), '');
+        await new Promise((done) => setTimeout(done, Number(readFileSync(join(runDir, 'wait.txt'), 'utf8'))));
+    }
     const errors = existsSync(join(runDir, 'errors.txt')) ? readFileSync(join(runDir, 'errors.txt'), 'utf8').split('\\n').filter(Boolean) : [];
     return errors.length ? { errors } : statusOf(path) ? { status: statusOf(path) } : { errors: [path + ' § frontmatter: no status'] };
 };
