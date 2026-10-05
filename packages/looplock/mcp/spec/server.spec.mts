@@ -35,7 +35,7 @@ function server() {
     return { call };
 }
 
-test('the handshake names the server, and tools/list lists the 8 tools, one per CLI command but compile', async () => {
+test('the handshake names the server, and tools/list lists the 8 tools, one per CLI command but compile and dispatch', async () => {
     const s = server();
     const init = await s.call('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'spec', version: '0' } });
     assert.deepEqual([init.result.protocolVersion, init.result.serverInfo.name], ['2025-06-18', 'looplock']);
@@ -43,8 +43,8 @@ test('the handshake names the server, and tools/list lists the 8 tools, one per 
     const commands = spawnSync(process.execPath, [BIN], { encoding: 'utf8' }).stderr.match(/<(.+)>/)![1].split('|');
     const { tools } = (await s.call('tools/list')).result;
     assert.deepEqual(tools.map((t: any) => t.name), ['new', 'next', 'result', 'show', 'validate', 'answer', 'gate', 'transition']);
-    // `compile` prints a loop for its author; no agent needs it, so the server leaves it out.
-    assert.deepEqual(tools.map((t: any) => t.name), commands.filter((c) => c !== 'compile'));
+    // `compile` prints a loop for its author, and `dispatch` serves a harness's watcher through the CLI; no agent needs either.
+    assert.deepEqual(tools.map((t: any) => t.name), commands.filter((c) => c !== 'compile' && c !== 'dispatch'));
     assert.deepEqual(tools.filter((t: any) => t.annotations.readOnlyHint).map((t: any) => t.name), ['show']);
     assert.equal((await s.call('bogus')).error.code, -32601);
 });

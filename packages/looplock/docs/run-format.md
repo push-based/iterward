@@ -1,6 +1,6 @@
 # Run format
 
-Every file of a run lives in its run folder, beside `run.json`. The engine writes only `run.json` and `out/`, and agents and hooks write the rest. The following tree shows the run from [Run the default loop by hand](tutorial.md):
+Every file of a run lives in its run folder, beside `run.json`. The engine writes only `run.json`, its lock and temporary files, and `out/`, and agents and hooks write the rest. The following tree shows the run from [Run the default loop by hand](tutorial.md):
 
 ```text
 runs/example/
@@ -43,4 +43,4 @@ A refusal or a `validate` error list over 20,000 characters goes whole to `out/<
 
 ## Reserved names
 
-The engine keeps the names `run.json` and `out/`, so an artifact can't use them.
+The engine keeps the names `run.json` and `out/`, so an artifact can't use them. It also writes `run.json.lock`, which holds the running command's `pid`, `command`, and `at`, and `run.json.<PID>.tmp` beside the run, as [One command at a time](cli.md#one-command-at-a-time) describes.

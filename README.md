@@ -62,7 +62,7 @@ No `looplock@*` tag exists before the first release, and npm configures a truste
 
 ```bash
 npm login
-GH_TOKEN=$(gh auth token) npx nx release 0.3.0 --first-release
+GH_TOKEN=$(gh auth token) npx nx release 0.4.0 --first-release
 ```
 
-The command releases the version that `packages/looplock/package.json` holds, and asks before it publishes to npm. Later releases start from the `looplock@0.3.0` tag and run through the workflows.
+The command releases the version that `packages/looplock/package.json` holds, and asks before it publishes to npm. Later releases start from the `looplock@0.4.0` tag and run through the workflows.

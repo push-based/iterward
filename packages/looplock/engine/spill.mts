@@ -3,12 +3,14 @@
  * to a file in the run folder's `out/`, with the start printed and the file named.
  */
 
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /** Agent harnesses cut a tool result near 30,000 characters, and a cut line reads as complete. */
 export const SPILL_OVER = 20_000;
 const KEEP_LINES = 40;
+/** A kept line past this many characters is cut, because one line can hold most of the text. */
+const KEEP_CHARS = 400;
 
 /**
  * Error lines grouped by their prefix, the text before the first `: `, in order of first appearance: each group
@@ -30,17 +32,28 @@ export function group(lines: string[]): string {
 export function spillFile(runDir: string, name: string, text: string): string {
     const dir = join(runDir, 'out');
     mkdirSync(dir, { recursive: true });
-    let n = 1;
-    while (existsSync(join(dir, `${name}.${n}.txt`))) n++;
-    const file = join(dir, `${name}.${n}.txt`);
-    writeFileSync(file, text);
-    return file;
+    // Created exclusively, so two refusals spilling at once never share a file.
+    for (let n = 1; ; n++) {
+        const file = join(dir, `${name}.${n}.txt`);
+        try {
+            writeFileSync(file, text, { flag: 'wx' });
+            return file;
+        } catch (e) {
+            if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
+        }
+    }
 }
 
-/** `text` unchanged up to SPILL_OVER characters; longer text goes whole to a file, and its first 40 lines come back with the file named. */
+/**
+ * `text` unchanged up to SPILL_OVER characters; longer text goes whole to a file, and its first 40 lines come back,
+ * each cut to 400 characters and `…`, with the file named.
+ */
 export function spill(runDir: string, name: string, text: string): string {
     if (text.length <= SPILL_OVER) return text;
     const file = spillFile(runDir, name, text);
     const lines = text.split('\n');
-    return [...lines.slice(0, KEEP_LINES), `… ${lines.length - KEEP_LINES} more lines in ${file}`].join('\n');
+    // Cut by code point, so a cut never splits a surrogate pair.
+    const kept = lines.slice(0, KEEP_LINES).map((l) => (l.length > KEEP_CHARS ? `${Array.from(l).slice(0, KEEP_CHARS).join('')}…` : l));
+    const more = lines.length - KEEP_LINES;
+    return [...kept, more > 0 ? `… ${more} more lines in ${file}` : `… the whole text is in ${file}`].join('\n');
 }

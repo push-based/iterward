@@ -110,6 +110,7 @@ The engine checks the run file on every call. These rules hold for every loop:
 - **Declared human moves.** A human moves with `transition` only along the moves the loop lists for the current state. Every stop lists the human's moves as data: the call that records each move, and what the call changes.
 - **Answers, all or none.** An `answer` call records all of its answers or none of them. For each answer, the call runs the loop's `onAnswer` hook, then freezes the question file.
 - **Bounded opens.** An unusable or refused result opens the same step again with the lines to fix, and a step opened `limits.opens` times since the last human move parks the run for a human.
+- **One command at a time.** A command that changes a run holds the run's lock, so a second one is refused before any hook runs. The engine replaces `run.json` whole.
 
 For every rule and the terms it uses, see [Protocol rules](docs/protocol.md).
 
