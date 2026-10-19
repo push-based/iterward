@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { loadLoop, loop } from './engine.mts';
+import { loadLoop, loop } from './engine.ts';
 
 const CONFIG = 'examples/default/default.loop.json';
 
@@ -45,7 +45,7 @@ A document must be written after its dispatch opens, because `result` refuses an
 Run the engine's tests from the `packages/looplock` folder:
 
 ```bash
-node --test '**/*.spec.mts'
+npm test
 ```
 
-One test in `engine.spec.mts` keeps the package domain independent. It scans every file of the package, the specs and their fixtures included, for terms from the workflow Looplock came from, and fails on a match. Put a loop for a specific domain in its own directory, outside this repository.
+One test in `engine.spec.ts` keeps the package domain independent. It scans every file of the package, the specs and their fixtures included, for terms from the workflow Looplock came from, and fails on a match. Put a loop for a specific domain in its own directory, outside this repository.

@@ -64,7 +64,7 @@ After the checks pass, the loop's `onAnswer` hook writes each answer into its qu
 The following command records the answers to two questions, `Q-1` and `Q-2`, in one call:
 
 ```bash
-node bin.mts answer --run runs/example/run.json --answers '[{"id":"Q-1","option":"A","answer":"One page."},{"id":"Q-2","option":"custom","answer":"Save on every change."}]'
+node bin.ts answer --run runs/example/run.json --answers '[{"id":"Q-1","option":"A","answer":"One page."},{"id":"Q-2","option":"custom","answer":"Save on every change."}]'
 ```
 
 The CLI prints each answered question with its chosen key, and the questions still pending:

@@ -14,7 +14,7 @@ runs/example/
 
 ## run.json
 
-`config.mts` exports the exact shape as `Run`. Hooks read it through `HookContext.run`, and only the engine writes it, after a command succeeds. It holds these fields:
+`config.ts` exports the exact shape as `Run`. Hooks read it through `HookContext.run`, and only the engine writes it, after a command succeeds. It holds these fields:
 
 - `config`: the loop file's path and the sha256 over the loop file and its hook modules.
 - `inputs`, `status`, and `blockedFrom`: the run's inputs, its state, and the step a blocked run parked from.

@@ -1,6 +1,6 @@
 # The loop file
 
-This reference condenses `docs/configuration.md` and the checks in `compile-loop.mts` of Looplock 0.4.0. The compiler is the authority: when it disagrees with this page, follow the compiler and tell the user the page is stale.
+This reference condenses `docs/configuration.md` and the checks in `compile-loop.ts` of Looplock 0.4.0. The compiler is the authority: when it disagrees with this page, follow the compiler and tell the user the page is stale.
 
 ## Contents
 
