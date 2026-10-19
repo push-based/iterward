@@ -1,9 +1,12 @@
 {
   "name": "@push-based/looplock",
   "version": "0.4.0",
+  "description": "A deterministic control plane for agentic engineering workflows.",
+  "license": "MIT",
   "type": "module",
+  "exports": { ".": { "types": "./dist/engine.d.ts", "default": "./dist/engine.js" } },
   "bin": { "looplock": "./dist/bin.js" },
-  "files": ["dist"],
+  "files": ["dist", "examples"],
   "engines": { "node": ">=22.18" },
   "repository": { "type": "git", "url": "git+https://github.com/push-based/looplock.git", "directory": "packages/looplock" },
   "publishConfig": { "access": "public" },

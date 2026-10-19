@@ -25,6 +25,8 @@
  *   - run.json is replaced whole, through a temporary file and a rename.
  */
 
+import { readFileSync } from 'node:fs';
+import { findPackageJSON } from 'node:module';
 import type { LoopConfig } from './config.ts';
 import { context } from './engine/context.ts';
 import { answerQuestions } from './engine/decisions/answer-questions.ts';
@@ -48,7 +50,7 @@ export { FreezeError } from './engine/run/freezes.ts';
 export { group, spill } from './engine/spill.ts';
 export { hasText, sha256 } from './engine/util.ts';
 
-export const VERSION = '0.4.0';
+export const VERSION: string = JSON.parse(readFileSync(findPackageJSON('./', import.meta.url)!, 'utf8')).version;
 
 /** The operations of one loop, each bound to the context built from it. */
 export function loop(cfg: LoopConfig) {
