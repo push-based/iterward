@@ -2,42 +2,45 @@ name: Release
 
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: Version to release
-        type: string
-        required: false
-      first-release:
-        description: First release
-        type: boolean
-        default: false
-      dry-run:
-        description: Preview only
-        type: boolean
-        default: true
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
+    name: Version and release
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v7
+      - name: Authenticate as the release bot GitHub App
+        uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ vars.GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+
+      - name: Fetch the GitHub App's user ID
+        id: get-user-id
+        run: echo "user-id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      - name: Configure the Git user
+        run: |
+          git config --global user.name '${{ steps.app-token.outputs.app-slug }}[bot]'
+          git config --global user.email '${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com'
+
+      - name: Clone the repository
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org
-          cache: npm
-      - run: npm ci
-      - run: npx nx run-many -t test
-      - run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-      - run: npx nx release $VERSION --yes ${{ inputs.first-release && '--first-release' || '' }} ${{ inputs.dry-run && '--dry-run' || '' }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Set up dependencies
+        uses: ./.github/actions/setup
+
+      - name: Version, release, and generate the changelog
+        run: npx nx release --skip-publish
         env:
-          VERSION: ${{ inputs.version }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}

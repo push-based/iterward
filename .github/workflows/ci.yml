@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  # Run merge workflows in sequence, and cancel stale pull request runs for the same branch.
+  group: >-
+    ${{ github.workflow }}-${{
+      github.event_name == 'push'
+        && github.ref
+        || github.head_ref
+    }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  main:
+    name: Main CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone the repository
+        uses: actions/checkout@v7
+        with:
+          # Nx affected needs the history to compare against.
+          fetch-depth: 0
+
+      - name: Derive the base and head SHAs for nx affected
+        uses: nrwl/nx-set-shas@v5
+
+      - name: Set up dependencies
+        uses: ./.github/actions/setup
+
+      - name: Build and test the affected projects
+        run: npx nx affected -t build test
