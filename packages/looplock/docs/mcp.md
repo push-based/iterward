@@ -20,14 +20,15 @@ Replace `VERSION` with the Looplock version your runs use, such as `0.4.0`. When
 
 The first start through npx downloads the package. If the client stops waiting before the download ends, restart the server after the download, or install the package.
 
-A client that approves tool calls automatically, such as through an `autoApprove` list, must list only the machine moves and the loop tools: `build-loop`, `compile`, `new`, `next`, `result`, `validate`, and `show`. The client then asks the human to allow each `answer`, `gate`, and `transition`, the human moves Looplock records. One `answer` call carries every answer of one human message, so the human allows the answers once. When the client offers to always allow one of these three tools, decline, because an always-allowed tool runs without asking the human.
+A client that approves tool calls automatically, such as through an `autoApprove` list, must list only the machine moves and the loop tools: `init`, `build-loop`, `compile`, `new`, `next`, `result`, `validate`, and `show`. The client then asks the human to allow each `answer`, `gate`, and `transition`, the human moves Looplock records. One `answer` call carries every answer of one human message, so the human allows the answers once. When the client offers to always allow one of these three tools, decline, because an always-allowed tool runs without asking the human.
 
 ## Tools and arguments
 
-The server has 10 tools, one for each command except `dispatch`, `mcp`, and `--version`. Each tool takes its command's flags as arguments:
+The server has 11 tools, one for each command except `dispatch`, `mcp`, and `--version`. Each tool takes its command's flags as arguments:
 
 | Tool | Arguments |
 | --- | --- |
+| `init` | Optionally `to`, the folder to copy the default loop to, `loops/default` when left out |
 | `build-loop` | None |
 | `compile` | `config` |
 | `new` | `config`, `run`, and `inputs`, the loop inputs as one object, such as `{"subject": "the settings page"}` |

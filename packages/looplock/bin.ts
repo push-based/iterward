@@ -5,6 +5,7 @@
  * and `result` hands the document the agent wrote to its artifact's guard, which returns the status.
  *
  * Subcommands (a run names its loop file, so only `compile` and `new` take --config):
+ *   init        [--to <dir>]           copies the default loop to <dir>, loops/default when left out, without its spec
  *   build-loop                         the build-loop skill as text, then each file it reads: designs a loop file
  *   compile     --config <loop.json>   the compiled loop: each step's outcomes resolved from machine
  *   new         --config <loop.json> --run <run.json> [--<input> <value> …]      runs the loop's preflight first
@@ -30,7 +31,7 @@
  * holds <run>.lock while it runs, and refuses while a live process holds it.
  */
 
-import { existsSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { findPackageJSON } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -156,6 +157,14 @@ async function change(a: Record<string, any>, fn: (L: ReturnType<typeof loop>, r
 }
 
 const COMMANDS: Record<string, (a: Record<string, any>) => Promise<unknown>> = {
+    // The spec stays behind: it runs this package's CLI by a path the copy doesn't have.
+    async init(a) {
+        const to = a.to ?? 'loops/default';
+        if (existsSync(to)) throw new Error(`${to} exists; pass --to with a folder that doesn't`);
+        const from = join(ROOT, 'examples/default');
+        cpSync(from, to, { recursive: true, filter: (src) => src !== join(from, 'default.spec.mts') });
+        return { ok: true, config: join(to, 'default.loop.json') };
+    },
     // The skill, then each file it reads after a line that names the file, so an agent without the files gets all of it.
     async 'build-loop'() {
         const dir = join(ROOT, 'skills/build-loop');

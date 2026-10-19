@@ -23,7 +23,7 @@ To see each step's outcomes and their targets, run `npx looplock compile --confi
 
 ## Take a run to done
 
-Run these steps from the root of your repository, after you install Looplock and copy the default loop to `loops/default/`, as [Quick start](../README.md#quick-start) describes. If you followed the quick start, your run is ready for step 3.
+Run these steps from the root of your repository, after you copy the default loop to `loops/default/` with `init`, as [Quick start](../README.md#quick-start) describes. If you followed the quick start, your run is ready for step 3.
 
 1. Start a run:
 

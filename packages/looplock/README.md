@@ -122,15 +122,16 @@ Looplock needs Node.js 22.18 or later and has no npm dependencies. Install it as
 npm install --save-dev @push-based/looplock
 ```
 
-The package gives you the `looplock` command, which you run as `npx looplock`, the engine, which a test imports from `@push-based/looplock`, the MCP server, and the default loop. To work on Looplock itself, see the [repository README](../../README.md).
+The package gives you the `looplock` command, which you run as `npx looplock`, the engine, which a test imports from `@push-based/looplock`, the MCP server, the default loop, and the build-loop skill. To work on Looplock itself, see the [repository README](../../README.md).
+
+To try Looplock without an install, run each command as `npx @push-based/looplock`, such as `npx @push-based/looplock init`. An install pins the version your runs use, and lets a test import the engine.
 
 ## Quick start
 
-Node.js doesn't strip types from files under `node_modules`, so it can't load the default loop's `hooks.mts` where npm installs it. Copy the default loop into your repository, and start a run from the repository root:
+Node.js doesn't strip types from files under `node_modules`, so it can't load the default loop's `hooks.mts` where npm installs it. `init` copies the default loop into `loops/default/` in your repository. From the repository root, copy the loop, and start a run:
 
 ```bash
-mkdir -p loops
-cp -r node_modules/@push-based/looplock/examples/default loops/default
+npx looplock init
 npx looplock new --config loops/default/default.loop.json --run runs/example/run.json --subject 'the settings page'
 npx looplock next --run runs/example/run.json
 ```

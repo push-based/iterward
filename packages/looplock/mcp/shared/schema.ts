@@ -10,6 +10,6 @@ export const COMMON = {
 export const ANNOTATIONS = {
     /** Reads the run and changes nothing. */
     read: { readOnlyHint: true, openWorldHint: false },
-    /** Changes the run file or writes beside it, and never deletes. */
+    /** Changes the run file or writes files, and never deletes. */
     write: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
 } as const satisfies Record<string, Omit<ToolSchema['annotations'], 'title'>>;
