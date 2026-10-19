@@ -44,12 +44,12 @@ The server has 11 tools, one for each command except `dispatch`, `mcp`, and `--v
 
 The server has no tool for `dispatch`, because a harness's watcher reads the open dispatch through the CLI.
 
-## Design a loop
-
-`build-loop` returns the build-loop skill: instructions to interview the user about a workflow, settle one decision at a time, and write a loop file and its hooks module that `compile` accepts. The loop file reference and the hooks template follow the instructions, each after a line that names its file. The skill comes from the server's own package, so it matches the engine that compiles the loop. The server's `initialize` result carries instructions that tell an agent to call `build-loop` before it writes or changes a loop file. Without MCP, `npx looplock build-loop` prints the same text.
-
 A tool returns the command's output as text. A refusal returns an error result whose text starts with the tool name and `refused:`. A malformed call, such as a missing or unknown argument, returns one whose text starts with the tool name and `malformed call:`. An error text names each argument as the tool takes it, such as `note`, where the CLI prints the flag `--note`.
 
 The server handles one request at a time. Across processes, such as the server and a watcher that runs the CLI, the run's lock lets one command change the run at a time, and a command refused by the lock comes back as a refusal. For the lock, see [One command at a time](cli.md#one-command-at-a-time).
 
 Set the client's request timeout above the longest hook. A `result` or a `transition` waits for every guard and `onEnter` hook it runs. The server doesn't cancel a command, so a call the client gave up on still finishes and changes the run. Pass `id` to `result`: a call retried after a timeout then refuses, instead of closing the dispatch the first call opened.
+
+## Design a loop
+
+`build-loop` returns the build-loop skill: instructions to interview the user about a workflow, settle one decision at a time, and write a loop file and its hooks module that `compile` accepts. The loop file reference and the hooks template follow the instructions, each after a line that names its file. The skill comes from the server's own package, so it matches the engine that compiles the loop. The server's `initialize` result carries instructions that tell an agent to call `build-loop` before it writes or changes a loop file. Without MCP, `npx looplock build-loop` prints the same text.
