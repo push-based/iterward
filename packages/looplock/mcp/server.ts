@@ -16,6 +16,10 @@ import { TOOLS, asArguments } from './tools.ts';
 /** The protocol versions the server speaks. It answers a version it doesn't know with the first. */
 const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 
+/** What an agent reads before its first call: where loop design starts, and which calls record a human's move. */
+const INSTRUCTIONS =
+    "Looplock keeps a run of a loop file on the transitions the loop declares. To design or change a loop file, call `build-loop` first, and follow the instructions it returns. To drive a run, call `next`, send its message to the agent it names, and call `result` after the agent writes its document. `answer`, `gate`, and `transition` record a human's move: call them only with the human's own words.";
+
 const rpcError = (code: number, message: string) => Object.assign(new Error(message), { code });
 
 const METHODS: Record<string, (params: any) => unknown> = {
@@ -23,6 +27,7 @@ const METHODS: Record<string, (params: any) => unknown> = {
         protocolVersion: PROTOCOLS.includes(p?.protocolVersion) ? p.protocolVersion : PROTOCOLS[0],
         capabilities: { tools: {} },
         serverInfo: { name: 'looplock', version: VERSION },
+        instructions: INSTRUCTIONS,
     }),
     ping: () => ({}),
     'tools/list': () => ({ tools: TOOLS.map((t) => t.schema) }),

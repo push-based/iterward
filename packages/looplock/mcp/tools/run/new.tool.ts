@@ -8,7 +8,7 @@ const schema: ToolSchema = {
     inputSchema: {
         type: 'object',
         properties: {
-            config: { type: 'string', description: 'The loop file, such as loop/default.loop.json.' },
+            config: COMMON.config,
             run: COMMON.run,
             inputs: { type: 'object', additionalProperties: { type: 'string' }, description: 'The loop inputs, such as {"subject": "the settings page"}.' },
         },

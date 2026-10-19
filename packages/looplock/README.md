@@ -93,7 +93,7 @@ To print the compiled loop, each outcome resolved to its target, run `npx looplo
 
 Looplock isn't an agent framework. It never starts an agent: `next` prints the dispatch, and your runtime runs it. It doesn't decide how an agent reasons, which model it uses, or how it edits code. It never parses your documents: it hashes files for freezes, compares a document's modification time with its dispatch, lists question files by name, and hands every path to a hook. It also isn't a durable execution platform such as Temporal: it has no distributed scheduling, queues, cloud execution, model hosting, or agent memory.
 
-The package holds the engine, the CLI, and the MCP server. It also ships the default loop in `examples/default/`, a starting point to copy that the engine never loads.
+The package holds the engine, the CLI, and the MCP server. It also ships the default loop in `examples/default/`, a starting point to copy that the engine never loads, and the build-loop skill in `skills/build-loop/`, which an agent follows to design a loop file with you.
 
 Its scope is small on purpose. Looplock fits workflows where agents or humans do the work, where failures and approvals matter, and where the protocol matters enough to formalize, inspect, and test.
 
@@ -142,6 +142,10 @@ npx looplock next --run runs/example/run.json
 ```
 
 To play each agent by hand through the gate, the build, and the verification, continue with [Run the default loop by hand](docs/tutorial.md). To start a loop of your own, change the copy, as [The default loop](examples/default/README.md) describes.
+
+## Design a loop with an agent
+
+The build-loop skill turns a workflow you describe into a loop file and its hooks module. An agent following it drafts the whole loop first, asks you one decision at a time with a recommended answer, and checks the result with `compile`. The agent gets the skill from the MCP server's `build-loop` tool, or from `npx looplock build-loop`, which prints the same text. For the server, see [MCP server](docs/mcp.md).
 
 ## Documentation
 

@@ -25,6 +25,7 @@ test('the SDK client connects at its latest protocol, lists the tools, and reads
     await client.connect(transport);
     after(() => client.close());
     assert.deepEqual([negotiated, client.getServerVersion()?.name], [LATEST_PROTOCOL_VERSION, 'looplock']);
+    assert.match(client.getInstructions() ?? '', /`build-loop`/);
 
     const { tools } = await client.listTools();
     assert.ok(tools.some((t) => t.name === 'show'));

@@ -6,7 +6,7 @@
   "type": "module",
   "exports": { ".": { "types": "./dist/engine.d.ts", "default": "./dist/engine.js" } },
   "bin": { "looplock": "./dist/bin.js" },
-  "files": ["dist", "examples"],
+  "files": ["dist", "examples", "skills", "!skills/*/evals"],
   "engines": { "node": ">=22.18" },
   "repository": { "type": "git", "url": "git+https://github.com/push-based/looplock.git", "directory": "packages/looplock" },
   "publishConfig": { "access": "public" },

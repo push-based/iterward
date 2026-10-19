@@ -4,9 +4,10 @@
  * engine.ts hold whichever agent calls it. It never starts an agent: `next` returns the dispatch to send,
  * and `result` hands the document the agent wrote to its artifact's guard, which returns the status.
  *
- * Subcommands (a run names its loop file, so only `new` and `compile` take --config):
- *   new         --config <loop.json> --run <run.json> [--<input> <value> …]      runs the loop's preflight first
+ * Subcommands (a run names its loop file, so only `compile` and `new` take --config):
+ *   build-loop                         the build-loop skill as text, then each file it reads: designs a loop file
  *   compile     --config <loop.json>   the compiled loop: each step's outcomes resolved from machine
+ *   new         --config <loop.json> --run <run.json> [--<input> <value> …]      runs the loop's preflight first
  *   next        --run <run.json>       the move the run needs: {do: dispatch|stop, …}
  *   result      --run <run.json> [--id <N>]   runs the open step's guard on its document and follows the machine;
  *                                      prints {closed: {id, step, outcome}, …the next move}. With --id, refuses
@@ -21,7 +22,8 @@
  *   mcp         the MCP server over stdio: each tool call runs one of these commands
  *   --version
  *
- * Run it from the repository root. Each command prints one line of JSON, except `validate`, which prints text.
+ * Run it from the repository root. Each command prints one line of JSON, except `validate` and `build-loop`, which
+ * print text.
  * Exit 0 ok, 2 refused (the reason on stderr, its lines grouped), 1 usage error. A refusal over 20,000
  * characters goes whole to <run folder>/out/, and stderr keeps its first 40 lines, each cut to 400 characters,
  * and names the file. `next`, `result`, `answer`, `gate`, and `transition` change the run one at a time: each
@@ -29,10 +31,14 @@
  */
 
 import { existsSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { findPackageJSON } from 'node:module';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { group, loadLoop, loop, openDispatch, pendingQuestions, printable, spill, VERSION, type Run } from './engine.ts';
+
+/** The package folder, which holds the skills and the default loop in a clone and in an install. */
+const ROOT = dirname(findPackageJSON('./', import.meta.url)!);
 
 /** Commands whose second word is a name. */
 const NAMED = new Set(['validate', 'gate']);
@@ -150,6 +156,17 @@ async function change(a: Record<string, any>, fn: (L: ReturnType<typeof loop>, r
 }
 
 const COMMANDS: Record<string, (a: Record<string, any>) => Promise<unknown>> = {
+    // The skill, then each file it reads after a line that names the file, so an agent without the files gets all of it.
+    async 'build-loop'() {
+        const dir = join(ROOT, 'skills/build-loop');
+        const file = (f: string) => readFileSync(join(dir, f), 'utf8').trimEnd();
+        return [file('SKILL.md'), `# File: references/loop-file.md\n\n${file('references/loop-file.md')}`, `# File: assets/hooks.mts\n\n\`\`\`ts\n${file('assets/hooks.mts')}\n\`\`\``].join('\n\n');
+    },
+    async compile(a) {
+        req(a, ['config']);
+        const config = await loadLoop(a.config);
+        return { config: printable(config) };
+    },
     async new(a) {
         req(a, ['config', 'run']);
         const L = loop(await loadLoop(a.config));
@@ -160,11 +177,6 @@ const COMMANDS: Record<string, (a: Record<string, any>) => Promise<unknown>> = {
         const { _, config, run, ...inputs } = a;
         const r = L.saveRun(a.run, await L.newRun(a.run, inputs, a.config));
         return { ok: true, status: r.status, warnings: r.warnings };
-    },
-    async compile(a) {
-        req(a, ['config']);
-        const config = await loadLoop(a.config);
-        return { config: printable(config) };
     },
     next: (a) => change(a, (L, r) => L.next(a.run, r)),
     async result(a) {
