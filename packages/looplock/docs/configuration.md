@@ -1,10 +1,10 @@
 # Configuration
 
-A loop is one JSON file, and its hooks are named exports of ES modules beside it. `loadLoop` in `load-config.mts` reads the file, imports each hook, and compiles it to the `LoopConfig` the engine runs. To start a loop of your own, copy `examples/default/`, and pass your loop file to `new --config`. A run refuses every command after its loop file, a hook module, or a local file a hook module imports changes, so start a new run after you edit a loop.
+A loop is one JSON file, and its hooks are named exports of ES modules beside it. `loadLoop` in `load-config.ts` reads the file, imports each hook, and compiles it to the `LoopConfig` the engine runs. To start a loop of your own, copy `examples/default/`, and pass your loop file to `new --config`. A run refuses every command after its loop file, a hook module, or a local file a hook module imports changes, so start a new run after you edit a loop.
 
 ## The loop file
 
-`config.mts` exports the loop file's exact shape as `LoopFile`. The loader refuses any field it doesn't name, with the place and the field at fault. Nothing is inferred: the file declares every step, outcome, and target. A loop file takes these fields:
+`config.ts` exports the loop file's exact shape as `LoopFile`. The loader refuses any field it doesn't name, with the place and the field at fault. Nothing is inferred: the file declares every step, outcome, and target. A loop file takes these fields:
 
 - `name` and `inputs`: the loop's name, and the `--<INPUT>` flags that `new` requires (`required`) or accepts (`optional`).
 - `preflight`: optional. The hook that runs on `new`, before the run exists.
@@ -112,7 +112,7 @@ build.1.md § Checks:
 
 ## Hooks
 
-`config.mts` exports each hook's type. A hook can return a value or a promise, and the engine awaits it. Every hook except the preflight receives a `HookContext`: `root`, the working directory of the CLI; `runPath`, the run file as the command received it; `runDir`, the absolute run folder; and `run`, the run, read only. Every path a hook receives is absolute, except `runPath`. A hook declares only the context fields it reads; looplock publishes no types to import.
+`config.ts` exports each hook's type. A hook can return a value or a promise, and the engine awaits it. Every hook except the preflight receives a `HookContext`: `root`, the working directory of the CLI; `runPath`, the run file as the command received it; `runDir`, the absolute run folder; and `run`, the run, read only. Every path a hook receives is absolute, except `runPath`. A hook declares only the context fields it reads; looplock publishes no types to import.
 
 | Hook | Type | Receives | Returns |
 | --- | --- | --- | --- |

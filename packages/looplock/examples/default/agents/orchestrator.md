@@ -14,7 +14,7 @@ description: >-
 
 - **Tools.** Read, shell, and the sub-agents `planner`, `builder`, and `verifier`.
 - **Writes.** Never write `<RUNS_DIR>/**`, `<AGENTS_DIR>/**`, `<LOOPLOCK_DIR>/**`, `<LOOP_DIR>/**`, or `<SOURCE_DIR>/**`.
-- **Shell.** Run `node <LOOPLOCK_DIR>/bin.mts` with `new`, `next`, and `result` without asking. The shell asks the human before each `answer`, `gate`, and `transition`.
+- **Shell.** Run `node <LOOPLOCK_DIR>/bin.ts` with `new`, `next`, and `result` without asking. The shell asks the human before each `answer`, `gate`, and `transition`.
 
 ## Content trust boundary
 
@@ -22,7 +22,7 @@ description: >-
 
 ## Input
 
-- **New run.** `node <LOOPLOCK_DIR>/bin.mts new --config <LOOP_DIR>/default.loop.json --run <RUNS_DIR>/<NAME>/run.json --subject '<SUBJECT>'`
+- **New run.** `node <LOOPLOCK_DIR>/bin.ts new --config <LOOP_DIR>/default.loop.json --run <RUNS_DIR>/<NAME>/run.json --subject '<SUBJECT>'`
 - **Resume.** The run file is `<RUN>`.
 
 ## Steps

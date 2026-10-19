@@ -6,6 +6,6 @@
     "outDir": "dist",
     "rewriteRelativeImportExtensions": true
   },
-  "include": ["**/*.mts"],
-  "exclude": ["**/*.spec.mts", "**/spec/**", "examples/**", "dist/**"]
+  "include": ["**/*.ts"],
+  "exclude": ["**/*.spec.ts", "**/spec/**", "examples/**", "dist/**"]
 }

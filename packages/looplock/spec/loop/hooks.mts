@@ -3,7 +3,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import type { Guard, OnAnswer, OnEnter, Preflight } from '../../config.mts';
+import type { Guard, OnAnswer, OnEnter, Preflight } from '../../config.ts';
 import { statusOf } from './status.mts';
 
 /** The document's frontmatter status, or the error that it has none. */

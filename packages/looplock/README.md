@@ -87,7 +87,7 @@ export function statusGuard(path) {
 }
 ```
 
-To print the compiled loop, each outcome resolved to its target, run `node bin.mts compile --config examples/default/default.loop.json`. For every field, see [Configuration](docs/configuration.md).
+To print the compiled loop, each outcome resolved to its target, run `node bin.ts compile --config examples/default/default.loop.json`. For every field, see [Configuration](docs/configuration.md).
 
 ## Scope
 
@@ -121,9 +121,9 @@ You need Node.js 22.18 or later. Looplock has no npm dependencies, and developme
 ```bash
 git clone https://github.com/push-based/looplock.git
 cd looplock/packages/looplock
-node --test '**/*.spec.mts'
-node bin.mts new --config examples/default/default.loop.json --run runs/example/run.json --subject 'the settings page'
-node bin.mts next --run runs/example/run.json
+npm test
+node bin.ts new --config examples/default/default.loop.json --run runs/example/run.json --subject 'the settings page'
+node bin.ts next --run runs/example/run.json
 ```
 
 `next` prints the first dispatch, the planner's standard message:

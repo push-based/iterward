@@ -13,7 +13,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-const BIN = fileURLToPath(new URL('../../bin.mts', import.meta.url));
+const BIN = fileURLToPath(new URL('../../bin.ts', import.meta.url));
 const LOOP = fileURLToPath(new URL('default.loop.json', import.meta.url));
 
 test('the default loop takes a run from plan to done', () => {
