@@ -4,20 +4,21 @@ The MCP server exposes the CLI's commands as Model Context Protocol (MCP) tools,
 
 ## Register the server
 
-The server runs each command in its working directory, so the client must start it in the root of the repository the loop works on. The server's path depends on the copy you run:
+`looplock mcp` starts the server. The server runs each command in its working directory, so the client must start it in the root of the repository the loop works on.
 
-- After `npm install`, the server is `node_modules/@push-based/looplock/dist/mcp/server.js`.
-- In a clone of the repository, the server is `packages/looplock/mcp/server.ts`, which Node.js runs without a build step.
-
-To register the installed server with Claude Code, add it to the `.mcp.json` file in the repository root:
+To register the server with Claude Code, add it to the `.mcp.json` file in the repository root. The following entry runs the published package through npx, so the repository needs no install:
 
 ```json
 {
     "mcpServers": {
-        "looplock": { "command": "node", "args": ["node_modules/@push-based/looplock/dist/mcp/server.js"] }
+        "looplock": { "command": "npx", "args": ["-y", "@push-based/looplock@VERSION", "mcp"] }
     }
 }
 ```
+
+Replace `VERSION` with the Looplock version your runs use, such as `0.4.0`. When the repository installs that version, npx runs the installed copy. In a clone of the Looplock repository, run `node packages/looplock/bin.ts mcp`, which Node.js runs without a build step.
+
+The first start through npx downloads the package. If the client stops waiting before the download ends, restart the server after the download, or install the package.
 
 A client that approves tool calls automatically, such as through an `autoApprove` list, must list only the machine moves: `new`, `next`, `result`, `validate`, and `show`. The client then asks the human to allow each `answer`, `gate`, and `transition`, the human moves Looplock records. One `answer` call carries every answer of one human message, so the human allows the answers once. When the client offers to always allow one of these three tools, decline, because an always-allowed tool runs without asking the human.
 

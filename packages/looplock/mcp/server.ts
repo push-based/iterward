@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * looplock MCP server — the CLI's commands as Model Context Protocol tools, over stdio. Each tool call runs
- * one CLI command in its own process, so the tools refuse what the CLI refuses. Start it from the
- * repository root, as the CLI.
+ * one CLI command in its own process, so the tools refuse what the CLI refuses. Start it with `looplock mcp`
+ * from the repository root, as the CLI.
  *
  * It answers `initialize`, `ping`, `tools/list`, and `tools/call`, one request at a time, and ignores
  * notifications. Every line on stdout is one JSON-RPC message.
@@ -14,7 +14,7 @@ import { VERSION } from '../engine.ts';
 import { TOOLS, asArguments } from './tools.ts';
 
 /** The protocol versions the server speaks. It answers a version it doesn't know with the first. */
-const PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
+const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 
 const rpcError = (code: number, message: string) => Object.assign(new Error(message), { code });
 

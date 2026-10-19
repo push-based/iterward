@@ -18,6 +18,7 @@
  *   answer      --run <run.json> --answers <JSON array of {id, option, answer}>   records all of them or none
  *   gate        <name> --run <run.json> --decision approved|rejected [--note <the human's words>]
  *   transition  --run <run.json> --to <state> --note <the human's words>
+ *   mcp         the MCP server over stdio: each tool call runs one of these commands
  *   --version
  *
  * Run it from the repository root. Each command prints one line of JSON, except `validate`, which prints text.
@@ -217,11 +218,16 @@ const COMMANDS: Record<string, (a: Record<string, any>) => Promise<unknown>> = {
     },
 };
 
-const USAGE = `Usage: looplock <${Object.keys(COMMANDS).join('|')}> [flags]`;
+const USAGE = `Usage: looplock <${[...Object.keys(COMMANDS), 'mcp'].join('|')}> [flags]`;
 
 export async function main(argv = process.argv.slice(2)) {
     if (argv[0] === '--version') {
         process.stdout.write(`${VERSION}\n`);
+        return;
+    }
+    // The server answers requests on stdin until the client closes it.
+    if (argv[0] === 'mcp' && argv.length === 1) {
+        await import('./mcp/server.ts');
         return;
     }
     let a;

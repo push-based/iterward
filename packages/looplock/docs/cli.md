@@ -2,7 +2,7 @@
 
 After you install Looplock, run each command as `npx looplock <COMMAND>`. Run every command from the root of the repository the loop works on, because the hooks receive that directory as `root`. Each command prints one line of JSON on stdout, except `validate`, which prints text. A command exits with `0` on success, `1` on a usage error, and `2` on a refusal, with the reason on stderr. The CLI groups a refusal's lines by file and section. A refusal over 20,000 characters goes whole to the run folder's `out/`, and stderr keeps its first 40 lines, each cut to 400 characters, and names the file.
 
-The following table lists the 11 commands:
+The following table lists the 12 commands:
 
 | Command | Flags | Output |
 | --- | --- | --- |
@@ -16,6 +16,7 @@ The following table lists the 11 commands:
 | `answer` | `--run <RUN> --answers <JSON_ARRAY>`, or `--run <RUN> --id <ID> --option <KEY\|custom> --answer <WORDS>` | `{ ok, answered, pending }`. Records every answer or none, and for each resolves the question and freezes its file. |
 | `gate` | `<NAME> --run <RUN> --decision approved\|rejected [--note <TEXT>]` | `{ ok, gate, decision, status, note }`. A rejection needs `--note`. |
 | `transition` | `--run <RUN> --to <STATE> --note <TEXT>` | `{ ok, status, blockedFrom }`. Moves the run along a human move of its state. |
+| `mcp` | None | Starts the MCP server over stdio. Each tool call runs one of these commands. For the tools, see [MCP server](mcp.md). |
 | `--version` | None | The version. |
 
 ## One command at a time
