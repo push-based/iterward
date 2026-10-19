@@ -4,7 +4,7 @@ A loop's protocol is a loop file and hooks, so you test it with `node:test`, the
 
 ## Test a loop
 
-`loop(await loadLoop(path))` returns the same `next` and `result` operations that the CLI calls. Your test plays each agent by writing its document, a Markdown file whose frontmatter carries the status, and never writes a result file of its own.
+`loop(await loadLoop(path))` returns the same `next` and `result` operations that the CLI calls. The package exports `loop`, `loadLoop`, `printable`, `FreezeError`, `VERSION`, and the types of `config.ts`, and nothing else. Your test plays each agent by writing its document, a Markdown file whose frontmatter carries the status, and never writes a result file of its own.
 
 The following test checks that a gate rejection in the default loop sends the human's note to the planner. It runs from the root of your repository, with the default loop copied to `loops/default/`, as [Quick start](../README.md#quick-start) describes. For your own loop, change the loop file:
 

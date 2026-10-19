@@ -39,14 +39,13 @@ import { transition } from './engine/run/transition.ts';
 import { show } from './engine/views/show.ts';
 import { validate } from './engine/views/validate.ts';
 
+// The public surface: the operations, the loop loader and its printable form, the version, and the types. The CLI
+// imports its other helpers from engine/ directly, so they stay out of the semver contract.
 export * from './config.ts';
 export { printable } from './compile-loop.ts';
 export { loadLoop } from './load-config.ts';
-export { pendingQuestions } from './engine/decisions/pending-questions.ts';
-export { openDispatch } from './engine/dispatch/internal/open-dispatch.ts';
 export { FreezeError } from './engine/run/freezes.ts';
-export { group, spill } from './engine/spill.ts';
-export { hasText, sha256, VERSION } from './engine/util.ts';
+export { VERSION } from './engine/util.ts';
 
 /** The operations of one loop, each bound to the context built from it. */
 export function loop(cfg: LoopConfig) {

@@ -36,7 +36,10 @@ import { findPackageJSON } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { group, loadLoop, loop, openDispatch, pendingQuestions, printable, spill, VERSION, type Run } from './engine.ts';
+import { loadLoop, loop, printable, VERSION, type Run } from './engine.ts';
+import { pendingQuestions } from './engine/decisions/pending-questions.ts';
+import { openDispatch } from './engine/dispatch/internal/open-dispatch.ts';
+import { group, spill } from './engine/spill.ts';
 
 /** The package folder, which holds the skills and the default loop in a clone and in an install. */
 const ROOT = dirname(findPackageJSON('./', import.meta.url)!);
