@@ -9,7 +9,8 @@
 
 import assert from 'node:assert/strict';
 import { type ChildProcess, execFile, spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { after, test } from 'node:test';
 
@@ -63,6 +64,13 @@ test('usage errors exit 1, refusals exit 2, --version prints the version package
     assert.equal(cli('new', '--config', config, '--run', runPath()).status, 1, 'new needs the inputs the loop requires');
     assert.equal(cli('transition', '--run', 'x', '--to', 'build').status, 1, 'transition needs --note');
     assert.equal(cli('show', '--run', runPath()).status, 2, 'a missing run is a refusal');
+});
+
+test('the CLI runs through a symlink, as an installed bin link calls it', () => {
+    const link = join(mkdtempSync(join(tmpdir(), 'looplock-bin-')), 'looplock');
+    symlinkSync(BIN, link);
+    const res = spawnSync(process.execPath, [link, '--version'], { encoding: 'utf8' });
+    assert.equal(res.stdout, cli('--version').stdout);
 });
 
 test('new runs the preflight: an error refuses the run, grouped, and writes nothing; a warning is kept', () => {
