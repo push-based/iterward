@@ -12,5 +12,5 @@
   "publishConfig": { "access": "public" },
   "nx": { "name": "looplock" },
   "scripts": { "build": "rm -rf dist && tsc -p tsconfig.build.json && chmod +x dist/bin.js", "test": "node --test '**/*.spec.ts' '**/*.spec.mts'" },
-  "devDependencies": { "typescript": "5.9.3", "@types/node": "^22" }
+  "devDependencies": { "typescript": "5.9.3", "@types/node": "^22", "@modelcontextprotocol/sdk": "1.32.1" }
 }

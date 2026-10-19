@@ -42,10 +42,12 @@ A document must be written after its dispatch opens, because `result` refuses an
 
 ## Run the engine's tests
 
-To change Looplock itself, clone the repository, and run the engine's tests from the `packages/looplock` folder:
+To change Looplock itself, clone the repository, run `npm install` in its root, and run the engine's tests from the `packages/looplock` folder:
 
 ```bash
 npm test
 ```
+
+The test in `mcp/spec/conformance.spec.ts` drives the MCP server with the official client of `@modelcontextprotocol/sdk`, which checks every reply against the protocol's schemas. The SDK is a development dependency only, so the package still installs no dependencies.
 
 One test in `engine.spec.ts` keeps the package domain independent. It scans every file of the package, the specs and their fixtures included, for terms from the workflow Looplock came from, and fails on a match. Put a loop for a specific domain in its own directory, outside this repository.
