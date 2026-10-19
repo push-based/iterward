@@ -1,6 +1,6 @@
 # The default loop
 
-This folder is a complete loop to run and to copy: a planner writes a plan, a human approves it at the gate, a builder implements it, and a verifier judges the build. It isn't part of the Looplock package.
+This folder is a complete loop to run and to copy: a planner writes a plan, a human approves it at the gate, a builder implements it, and a verifier judges the build. The Looplock package ships the folder, but the engine never loads it.
 
 ## Files
 
@@ -17,11 +17,11 @@ To run the loop by hand, see [Run the default loop by hand](../../docs/tutorial.
 
 To start a loop of your own from this folder, follow these steps:
 
-1. Copy the folder to a directory outside the Looplock repository, such as `loops/review/`.
+1. Copy the folder, `node_modules/@push-based/looplock/examples/default/` after an npm install, to a directory of your repository, such as `loops/review/`.
 2. In the copy, rename `default.loop.json`, and change `name`, `inputs`, `artifacts`, `steps`, `gates`, `stops`, `machine`, and `human`. For every field, see [Configuration](../../docs/configuration.md).
 3. In `hooks.mts`, change the hooks your loop needs, and add a hook for each guard, `onEnter`, or preflight the loop file names. The hooks import nothing from Looplock, so the copy works wherever it lives.
-4. Run `node LOOPLOCK_DIR/bin.ts compile --config loops/review/review.loop.json`, and check each outcome's target it prints. Replace `LOOPLOCK_DIR` with the directory of your Looplock copy.
+4. Run `npx looplock compile --config loops/review/review.loop.json`, and check each outcome's target it prints.
 5. Change the agents in `agents/` to match your steps and their statuses.
-6. In `default.spec.mts`, change `BIN` to your Looplock copy and `LOOP` to your loop file, and change the steps to your loop's path to its terminal stop.
+6. In `default.spec.mts`, change `BIN` to the installed CLI, `node_modules/@push-based/looplock/dist/bin.js`, and `LOOP` to your loop file, and change the steps to your loop's path to its terminal stop.
 
 A run holds the sha256 of its loop file and hook modules, so start a new run after you edit either.

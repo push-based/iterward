@@ -15,7 +15,7 @@ Each template has a Permissions section: the tools the agent uses, the files it 
 
 Before you use the agents, replace these placeholders in every file:
 
-- `<LOOPLOCK_DIR>`: the directory that holds `bin.ts`, or `bin.js` in a built copy, relative to the repository root.
+- `<LOOPLOCK_DIR>`: the directory of the installed package, `node_modules/@push-based/looplock`.
 - `<LOOP_DIR>`: the directory that holds `default.loop.json`.
 - `<RUNS_DIR>`: the directory that holds one directory per run.
 - `<AGENTS_DIR>`: the directory that holds these agent files.

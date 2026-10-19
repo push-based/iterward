@@ -6,7 +6,7 @@ A loop's protocol is a loop file and hooks, so you test it with `node:test`, the
 
 `loop(await loadLoop(path))` returns the same `next` and `result` operations that the CLI calls. Your test plays each agent by writing its document, a Markdown file whose frontmatter carries the status, and never writes a result file of its own.
 
-The following test checks that a gate rejection in the default loop sends the human's note to the planner. It sits in the `packages/looplock` folder. For your own loop, change the import path and the loop file:
+The following test checks that a gate rejection in the default loop sends the human's note to the planner. It runs from the root of your repository, with the default loop copied to `loops/default/`, as [Quick start](../README.md#quick-start) describes. For your own loop, change the loop file:
 
 ```ts
 import assert from 'node:assert/strict';
@@ -15,9 +15,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { loadLoop, loop } from './engine.ts';
+import { loadLoop, loop } from '@push-based/looplock';
 
-const CONFIG = 'examples/default/default.loop.json';
+const CONFIG = 'loops/default/default.loop.json';
 
 test('a gate rejection sends the human note to the planner', async () => {
     const L = loop(await loadLoop(CONFIG));
@@ -38,11 +38,11 @@ test('a gate rejection sends the human note to the planner', async () => {
 });
 ```
 
-A document must be written after its dispatch opens, because `result` refuses an older file. To test a loop through the CLI, as a harness drives it, see `examples/default/default.spec.mts`. To test what a loop file compiles to, assert on the `LoopConfig` that `loadLoop` returns: each step's `outcomes` hold the targets `machine` resolves to, a `*` key included.
+A document must be written after its dispatch opens, because `result` refuses an older file. To test a loop through the CLI, as a harness drives it, see `default.spec.mts` in the default loop. To test what a loop file compiles to, assert on the `LoopConfig` that `loadLoop` returns: each step's `outcomes` hold the targets `machine` resolves to, a `*` key included.
 
 ## Run the engine's tests
 
-Run the engine's tests from the `packages/looplock` folder:
+To change Looplock itself, clone the repository, and run the engine's tests from the `packages/looplock` folder:
 
 ```bash
 npm test

@@ -6,20 +6,18 @@ The MCP server exposes the CLI's commands as Model Context Protocol (MCP) tools,
 
 The server runs each command in its working directory, so the client must start it in the root of the repository the loop works on. The server's path depends on the copy you run:
 
-- In a built copy, the server is `mcp/server.js`.
+- After `npm install`, the server is `node_modules/@push-based/looplock/dist/mcp/server.js`.
 - In a clone of the repository, the server is `packages/looplock/mcp/server.ts`, which Node.js runs without a build step.
 
-To register a built copy with Claude Code, add it to the `.mcp.json` file in the repository root:
+To register the installed server with Claude Code, add it to the `.mcp.json` file in the repository root:
 
 ```json
 {
     "mcpServers": {
-        "looplock": { "command": "node", "args": ["LOOPLOCK_DIR/mcp/server.js"] }
+        "looplock": { "command": "node", "args": ["node_modules/@push-based/looplock/dist/mcp/server.js"] }
     }
 }
 ```
-
-Replace `LOOPLOCK_DIR` with the directory of the copy.
 
 A client that approves tool calls automatically, such as through an `autoApprove` list, must list only the machine moves: `new`, `next`, `result`, `validate`, and `show`. The client then asks the human to allow each `answer`, `gate`, and `transition`, the human moves Looplock records. One `answer` call carries every answer of one human message, so the human allows the answers once. When the client offers to always allow one of these three tools, decline, because an always-allowed tool runs without asking the human.
 
