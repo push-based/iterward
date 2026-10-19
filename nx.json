@@ -2,13 +2,44 @@
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
   "release": {
     "projects": ["packages/*"],
+    "projectsRelationship": "independent",
+    "conventionalCommits": {
+      "types": {
+        "docs": {
+          "semverBump": "none",
+          "changelog": {
+            "title": "Documentation Changes"
+          }
+        },
+        "chore": {
+          "semverBump": "none",
+          "changelog": false
+        }
+      }
+    },
     "version": {
-      "conventionalCommits": true,
-      "fallbackCurrentVersionResolver": "disk",
-      "preVersionCommand": "npx nx run-many -t build"
+      "conventionalCommits": true
+    },
+    "releaseTag": {
+      "pattern": "{projectName}@{version}",
+      "requireSemver": true,
+      "strictPreid": true,
+      "checkAllBranchesWhen": "main"
+    },
+    "git": {
+      "commit": true,
+      "tag": true
     },
     "changelog": {
-      "workspaceChangelog": { "createRelease": "github" }
+      "projectChangelogs": {
+        "createRelease": "github"
+      },
+      "workspaceChangelog": false
+    }
+  },
+  "targetDefaults": {
+    "nx-release-publish": {
+      "dependsOn": ["build"]
     }
   }
 }

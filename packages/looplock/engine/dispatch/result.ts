@@ -12,6 +12,13 @@ import { info, openDispatch } from './internal/open-dispatch.ts';
 import { next, parked } from './next.ts';
 
 /**
+ * How far a document's mtime can fall before `openedAt` and still count as written during the dispatch. Linux
+ * stamps files from a coarse kernel clock that runs up to one scheduler tick (1 to 10 ms) behind `Date`.
+ */
+// ponytail: a fixed allowance; a document written in the 50 ms before the dispatch opened counts as fresh.
+const CLOCK_GAP_MS = 50;
+
+/**
  * Close the open dispatch and follow the machine. With `id`, the open dispatch must be that one, checked before
  * any hook runs. The document must be fresh: written during the dispatch. Its artifact's guard returns the status,
  * which must be an outcome of the step, or the errors that refuse it. New question files enter the ledger. Then
@@ -37,7 +44,7 @@ async function follow(ctx: Ctx, runPath: string, run: Run, d: Dispatch): Promise
         close(d, outcome, fixes);
         return next(ctx, runPath, run);
     };
-    if (!existsSync(dispatch.document) || statSync(dispatch.document).mtimeMs < Date.parse(d.openedAt)) return failed('unusable', [`${d.agent} wrote no ${d.document} during this dispatch`]);
+    if (!existsSync(dispatch.document) || statSync(dispatch.document).mtimeMs < Date.parse(d.openedAt) - CLOCK_GAP_MS) return failed('unusable', [`${d.agent} wrote no ${d.document} during this dispatch`]);
     const r = await cfg.artifacts[step.writes].guard!(dispatch.document, { ...hookCtx(runPath, run), event: 'result', dispatch });
     const errors = errorsOf(r);
     if (errors.length) return failed('refused', errors);

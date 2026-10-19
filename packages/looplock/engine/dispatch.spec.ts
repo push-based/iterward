@@ -58,6 +58,15 @@ test('result: a missing or stale document is unusable and opens the step again; 
     assert.equal(env.L.show(env.run).opens, 3);
 });
 
+test('result: a document stamped a few milliseconds before the dispatch opened is fresh, as Linux stamps files from a coarse clock', async () => {
+    const env = await started();
+    await env.next();
+    env.write('notes.md');
+    const early = new Date(Date.parse(env.run.dispatches[0].openedAt) - 5);
+    utimesSync(join(env.runDir, 'notes.md'), early, early);
+    assert.deepEqual((await env.result()).closed, { id: 1, step: 'discovery', outcome: 'ok' });
+});
+
 test('result: the guard reads the status; a status outside the outcomes or none is unusable, and guard errors refuse', async () => {
     const env = await started();
     await env.next();
