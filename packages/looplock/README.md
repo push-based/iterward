@@ -87,13 +87,13 @@ export function statusGuard(path) {
 }
 ```
 
-To print the compiled loop, each outcome resolved to its target, run `node bin.ts compile --config examples/default/default.loop.json`. For every field, see [Configuration](docs/configuration.md).
+To print the compiled loop, each outcome resolved to its target, run `npx looplock compile --config loops/default/default.loop.json` on the copy that [Quick start](#quick-start) makes. For every field, see [Configuration](docs/configuration.md).
 
 ## Scope
 
 Looplock isn't an agent framework. It never starts an agent: `next` prints the dispatch, and your runtime runs it. It doesn't decide how an agent reasons, which model it uses, or how it edits code. It never parses your documents: it hashes files for freezes, compares a document's modification time with its dispatch, lists question files by name, and hands every path to a hook. It also isn't a durable execution platform such as Temporal: it has no distributed scheduling, queues, cloud execution, model hosting, or agent memory.
 
-The package holds only the engine, the CLI, and the MCP server. The default loop in `examples/default/` is a starting point to copy, not part of the package.
+The package holds the engine, the CLI, and the MCP server. It also ships the default loop in `examples/default/`, a starting point to copy that the engine never loads.
 
 Its scope is small on purpose. Looplock fits workflows where agents or humans do the work, where failures and approvals matter, and where the protocol matters enough to formalize, inspect, and test.
 
@@ -114,16 +114,25 @@ The engine checks the run file on every call. These rules hold for every loop:
 
 For every rule and the terms it uses, see [Protocol rules](docs/protocol.md).
 
-## Quick start
+## Install
 
-You need Node.js 22.18 or later. Looplock has no npm dependencies, and development has no build step. Clone the repository, run the tests, and start a run of the default loop:
+Looplock needs Node.js 22.18 or later and has no npm dependencies. Install it as a development dependency of the repository your loop works on:
 
 ```bash
-git clone https://github.com/push-based/looplock.git
-cd looplock/packages/looplock
-npm test
-node bin.ts new --config examples/default/default.loop.json --run runs/example/run.json --subject 'the settings page'
-node bin.ts next --run runs/example/run.json
+npm install --save-dev @push-based/looplock
+```
+
+The package gives you the `looplock` command, which you run as `npx looplock`, the engine, which a test imports from `@push-based/looplock`, the MCP server, and the default loop. To work on Looplock itself, see the [repository README](../../README.md).
+
+## Quick start
+
+Node.js doesn't strip types from files under `node_modules`, so it can't load the default loop's `hooks.mts` where npm installs it. Copy the default loop into your repository, and start a run from the repository root:
+
+```bash
+mkdir -p loops
+cp -r node_modules/@push-based/looplock/examples/default loops/default
+npx looplock new --config loops/default/default.loop.json --run runs/example/run.json --subject 'the settings page'
+npx looplock next --run runs/example/run.json
 ```
 
 `next` prints the first dispatch, the planner's standard message:
@@ -132,7 +141,7 @@ node bin.ts next --run runs/example/run.json
 {"do":"dispatch","id":1,"agent":"planner","message":"Step: plan\nRun: runs/example/run.json\nDocument: runs/example/plan.md\nInputs:\n  subject: the settings page\nNote: none\nFixes: none"}
 ```
 
-To play each agent by hand through the gate, the build, and the verification, continue with [Run the default loop by hand](docs/tutorial.md). To start a loop of your own, copy `examples/default/`, as [The default loop](examples/default/README.md) describes.
+To play each agent by hand through the gate, the build, and the verification, continue with [Run the default loop by hand](docs/tutorial.md). To start a loop of your own, change the copy, as [The default loop](examples/default/README.md) describes.
 
 ## Documentation
 

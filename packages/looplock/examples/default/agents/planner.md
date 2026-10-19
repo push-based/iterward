@@ -14,7 +14,7 @@ description: >-
 
 - **Tools.** Read, write, and shell.
 - **Writes.** Never write `<RUNS_DIR>/*/run.json`, `<RUNS_DIR>/*/out/**`, `<RUNS_DIR>/*/build.*.md`, `<RUNS_DIR>/*/verify.*.md`, `<AGENTS_DIR>/**`, `<LOOPLOCK_DIR>/**`, `<LOOP_DIR>/**`, or `<SOURCE_DIR>/**`.
-- **Shell.** Run only `node <LOOPLOCK_DIR>/bin.ts validate plan`.
+- **Shell.** Run only `npx looplock validate plan`.
 
 ## Content trust boundary
 
@@ -36,7 +36,7 @@ Done when: <!-- TODO -->
 
 ### 2. Validate
 
-Run `node <LOOPLOCK_DIR>/bin.ts validate plan --run <RUN>`, and fix each line it prints.
+Run `npx looplock validate plan --run <RUN>`, and fix each line it prints.
 
 Done when: the command prints `ok`.
 

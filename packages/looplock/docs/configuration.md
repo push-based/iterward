@@ -112,7 +112,7 @@ build.1.md § Checks:
 
 ## Hooks
 
-`config.ts` exports each hook's type. A hook can return a value or a promise, and the engine awaits it. Every hook except the preflight receives a `HookContext`: `root`, the working directory of the CLI; `runPath`, the run file as the command received it; `runDir`, the absolute run folder; and `run`, the run, read only. Every path a hook receives is absolute, except `runPath`. A hook declares only the context fields it reads; looplock publishes no types to import.
+`@push-based/looplock` exports each hook's type, which `config.ts` declares. A hook can return a value or a promise, and the engine awaits it. Every hook except the preflight receives a `HookContext`: `root`, the working directory of the CLI; `runPath`, the run file as the command received it; `runDir`, the absolute run folder; and `run`, the run, read only. Every path a hook receives is absolute, except `runPath`. A hook declares only the context fields it reads.
 
 | Hook | Type | Receives | Returns |
 | --- | --- | --- | --- |

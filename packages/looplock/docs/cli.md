@@ -1,6 +1,6 @@
 # CLI reference
 
-Run every command from the root of the repository the loop works on, because the hooks receive that directory as `root`. Each command prints one line of JSON on stdout, except `validate`, which prints text. A command exits with `0` on success, `1` on a usage error, and `2` on a refusal, with the reason on stderr. The CLI groups a refusal's lines by file and section. A refusal over 20,000 characters goes whole to the run folder's `out/`, and stderr keeps its first 40 lines, each cut to 400 characters, and names the file.
+After you install Looplock, run each command as `npx looplock <COMMAND>`. Run every command from the root of the repository the loop works on, because the hooks receive that directory as `root`. Each command prints one line of JSON on stdout, except `validate`, which prints text. A command exits with `0` on success, `1` on a usage error, and `2` on a refusal, with the reason on stderr. The CLI groups a refusal's lines by file and section. A refusal over 20,000 characters goes whole to the run folder's `out/`, and stderr keeps its first 40 lines, each cut to 400 characters, and names the file.
 
 The following table lists the 11 commands:
 
@@ -64,7 +64,7 @@ After the checks pass, the loop's `onAnswer` hook writes each answer into its qu
 The following command records the answers to two questions, `Q-1` and `Q-2`, in one call:
 
 ```bash
-node bin.ts answer --run runs/example/run.json --answers '[{"id":"Q-1","option":"A","answer":"One page."},{"id":"Q-2","option":"custom","answer":"Save on every change."}]'
+npx looplock answer --run runs/example/run.json --answers '[{"id":"Q-1","option":"A","answer":"One page."},{"id":"Q-2","option":"custom","answer":"Save on every change."}]'
 ```
 
 The CLI prints each answered question with its chosen key, and the questions still pending:
