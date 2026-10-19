@@ -88,6 +88,10 @@ A step opens at most `limits.opens` times since the latest human move: a gate de
 
 A run records one sha256 over its loop file and every hook module, with each module's local static imports, transitively. The CLI refuses every command of a run after any of them changes, so start a new run after you edit a loop.
 
+### The engine version
+
+A run records the Looplock version that started it. An engine of another version line refuses every command of the run: before 1.0, a line is a minor version, such as 0.4, and from 1.0, a major version. The refusal names the command that continues the run under its own line, such as `npx @push-based/looplock@0.4`.
+
 ### The run file
 
 For how commands lock and save the run, see [One command at a time](cli.md#one-command-at-a-time).

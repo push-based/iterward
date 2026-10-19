@@ -17,6 +17,7 @@ runs/example/
 `config.ts` exports the exact shape as `Run`. Hooks read it through `HookContext.run`, and only the engine writes it, after a command succeeds. It holds these fields:
 
 - `config`: the loop file's path and the sha256 over the loop file and its hook modules.
+- `engine`: the Looplock version that started the run.
 - `inputs`, `status`, and `blockedFrom`: the run's inputs, its state, and the step a blocked run parked from.
 - `warnings`: the preflight warnings, each with its reason.
 - `gates`: each gate's latest `decision`, `note`, and `at`, and its `history`, where each entry holds `judged`, the sha256 of each file the gate judged.

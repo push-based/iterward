@@ -1,5 +1,11 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { findPackageJSON } from 'node:module';
+
+/** The version of the Looplock package, from its package.json. */
+export const VERSION: string = JSON.parse(readFileSync(findPackageJSON('./', import.meta.url)!, 'utf8')).version;
+/** The part of a version that a run must share with the engine: the minor version before 1.0, the major version from 1.0. */
+export const versionLine = (v: string): string => v.split('.').slice(0, v.startsWith('0.') ? 2 : 1).join('.');
 
 export const sha256 = (text: string | Buffer): string => createHash('sha256').update(text).digest('hex');
 /** The sha256 of a file's bytes. */

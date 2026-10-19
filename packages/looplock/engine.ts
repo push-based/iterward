@@ -21,12 +21,10 @@
  *     the step; an unusable or refused result, or a refused transition, opens the same step again,
  *   - a step opens at most `limits.opens` times since the last human move, then the run parks,
  *   - a blocked run leaves only by a human move, and a move to blocked needs a note,
- *   - a run refuses to go on under a changed loop file or hook module,
+ *   - a run refuses to go on under a changed loop file or hook module, or under an engine of another version line,
  *   - run.json is replaced whole, through a temporary file and a rename.
  */
 
-import { readFileSync } from 'node:fs';
-import { findPackageJSON } from 'node:module';
 import type { LoopConfig } from './config.ts';
 import { context } from './engine/context.ts';
 import { answerQuestions } from './engine/decisions/answer-questions.ts';
@@ -48,9 +46,7 @@ export { pendingQuestions } from './engine/decisions/pending-questions.ts';
 export { openDispatch } from './engine/dispatch/internal/open-dispatch.ts';
 export { FreezeError } from './engine/run/freezes.ts';
 export { group, spill } from './engine/spill.ts';
-export { hasText, sha256 } from './engine/util.ts';
-
-export const VERSION: string = JSON.parse(readFileSync(findPackageJSON('./', import.meta.url)!, 'utf8')).version;
+export { hasText, sha256, VERSION } from './engine/util.ts';
 
 /** The operations of one loop, each bound to the context built from it. */
 export function loop(cfg: LoopConfig) {

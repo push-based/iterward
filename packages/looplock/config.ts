@@ -73,6 +73,8 @@ export type OnAnswer = (ctx: HookContext & { question: { id: string; file: strin
 
 export interface Run {
     config: { path: string; sha256: string };
+    /** The Looplock version that started the run. An engine of another minor version, or major version from 1.0, refuses the run. */
+    engine: string;
     inputs: Record<string, string>;
     status: string;
     blockedFrom?: string;

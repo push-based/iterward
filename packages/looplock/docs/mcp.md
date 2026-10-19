@@ -16,7 +16,7 @@ To register the server with Claude Code, add it to the `.mcp.json` file in the r
 }
 ```
 
-Replace `VERSION` with the Looplock version your runs use, such as `0.4.0`. When the repository installs that version, npx runs the installed copy. In a clone of the Looplock repository, run `node packages/looplock/bin.ts mcp`, which Node.js runs without a build step.
+Replace `VERSION` with the Looplock version your runs use, such as `0.4.0`. An engine of another minor version refuses a run, so a pinned version keeps every session on the engine that started the run. When the repository installs that version, npx runs the installed copy. In a clone of the Looplock repository, run `node packages/looplock/bin.ts mcp`, which Node.js runs without a build step.
 
 The first start through npx downloads the package. If the client stops waiting before the download ends, restart the server after the download, or install the package.
 
