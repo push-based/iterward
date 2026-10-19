@@ -1,68 +1,58 @@
 # Looplock
 
-This repository is an Nx workspace. It holds the following package:
+LLMs do the work. Looplock decides what happens next.
 
-- [`@push-based/looplock`](packages/looplock/README.md): a deterministic control plane for agentic engineering workflows.
+Looplock is a deterministic control plane for agentic engineering workflows. It moves routing, retries, approvals, failures, and stop conditions out of prompts and into a loop file and code that you can test. Agents own execution, and Looplock owns protocol: a run moves only along the transitions its loop file declares, and Looplock records every human move.
+
+## Get started
+
+Looplock needs Node.js 22.18 or later and has no npm dependencies. To copy the default loop into your repository and start a run, run these commands from the repository root:
+
+```bash
+npx @push-based/looplock init
+npx @push-based/looplock new --config loops/default/default.loop.json --run runs/example/run.json --subject 'the settings page'
+npx @push-based/looplock next --run runs/example/run.json
+```
+
+`next` prints the first dispatch: the message for the planner agent. To install Looplock as a development dependency instead, see [Install](packages/looplock/README.md#install).
+
+## Use it from an agent
+
+The MCP server exposes the CLI's commands as tools. To register it with Claude Code, add it to the `.mcp.json` file in your repository root:
+
+```json
+{
+    "mcpServers": {
+        "looplock": { "command": "npx", "args": ["-y", "@push-based/looplock@VERSION", "mcp"] }
+    }
+}
+```
+
+Replace `VERSION` with the Looplock version your runs use, such as `0.4.0`. The server's `build-loop` tool gives an agent the build-loop skill, which interviews you about a workflow and writes a loop file that compiles.
+
+## Documentation
+
+The following pages cover the rest:
+
+- [Looplock](packages/looplock/README.md): the problem, how Looplock works, a loop in code, and what the engine enforces.
+- [Run the default loop by hand](packages/looplock/docs/tutorial.md): play every agent and take a run to `done`.
+- [Configuration](packages/looplock/docs/configuration.md): the loop file, its hooks, and the standard message.
+- [CLI reference](packages/looplock/docs/cli.md): the commands, their flags, and the exit codes.
+- [MCP server](packages/looplock/docs/mcp.md): drive a run and design a loop through MCP tool calls.
+- [Protocol rules](packages/looplock/docs/protocol.md): the promise, the terms, and the rules.
+- [Testing](packages/looplock/docs/testing.md): test a loop with `node:test`.
 
 ## Develop
 
-You need Node.js 22.18 or later. To build and test every package, install the workspace, and then run the targets through Nx:
+The repository is an Nx workspace with one package, `packages/looplock`. To build and test it, install the workspace, and run the targets through Nx:
 
 ```bash
 npm install
 npx nx run-many -t build test
 ```
 
-## Write commit messages
+Every commit follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/). A `commit-msg` hook, which `npm install` sets up, checks each message.
 
-Releases derive versions from the commit messages, so every commit follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/). A `commit-msg` hook runs commitlint on each commit and refuses a message that doesn't follow the convention. `npm install` installs the hook.
+## License
 
-The commit type sets the version bump and the changelog section, as the following table shows:
-
-| Commit type | Version bump | Changelog section |
-|---|---|---|
-| `fix:` | Patch | Fixes |
-| `feat:` | Minor | Features |
-| `feat!:`, or any type with a `BREAKING CHANGE:` footer | Major | Breaking Changes |
-| `docs:` | None | Documentation Changes |
-| `perf:`, `refactor:`, `build:` | None | Their own section |
-| `chore:` | None | Not listed |
-
-Before version 1.0.0, each bump moves down one level: a breaking change bumps the minor version, and `feat:` bumps the patch version.
-
-## Release a version
-
-The release pipeline follows the one in [RxAngular](https://github.com/rx-angular/rx-angular). Nx Release versions each package in `packages/` on its own, from the commits since that package's last tag. A tag has the form `PROJECT@VERSION`, such as `looplock@0.3.1`.
-
-Two manual GitHub Actions workflows run a release from `main`:
-
-- **Release** bumps the versions, writes each package's `CHANGELOG.md`, commits, tags, pushes, and creates a GitHub release for each package. It runs as the release bot GitHub App.
-- **Publish** builds each package and publishes every version that npm doesn't have yet. npm trusts the workflow as a trusted publisher, so the workflow needs no npm token.
-
-To release a version, follow these steps:
-
-1. In the repository on GitHub, click **Actions**, and then click **Release**.
-1. Click **Run workflow**, select the `main` branch, and then click **Run workflow**. The run pushes a release commit and a tag for each released package.
-1. After the Release run finishes, click **Publish**, and then run that workflow from `main` the same way. The run publishes the versions to npm.
-
-To preview a release, run `npx nx release --skip-publish --dry-run` on an up-to-date `main`. The preview prints each version and changelog entry without changing anything.
-
-### Set up the pipeline
-
-The workflows need a one-time setup by a GitHub organization owner and an owner of the `@push-based` scope on npm. To set up the pipeline, follow these steps:
-
-1. Create a GitHub App in the `push-based` organization with read and write access to **Contents**, and install the App on this repository. If `main` has branch protection, let the App bypass it, so the App can push the release commit.
-1. In the repository settings, add the App's client ID as the `GH_APP_CLIENT_ID` variable, and add a private key of the App as the `GH_APP_PRIVATE_KEY` secret.
-1. Make the first release from your machine, as described in the next section.
-1. On npmjs.com, open the settings of `@push-based/looplock`, and add a GitHub Actions trusted publisher with the organization `push-based`, the repository `looplock`, and the workflow `publish.yml`.
-
-### Make the first release
-
-No `looplock@*` tag exists before the first release, and npm configures a trusted publisher in the settings of a package that exists. So the first release runs from a maintainer's machine. To make the first release, log in to npm, and then run the release on an up-to-date `main`:
-
-```bash
-npm login
-GH_TOKEN=$(gh auth token) npx nx release 0.4.0 --first-release
-```
-
-The command releases the version that `packages/looplock/package.json` holds, and asks before it publishes to npm. Later releases start from the `looplock@0.4.0` tag and run through the workflows.
+Looplock is available under the [MIT License](LICENSE).
