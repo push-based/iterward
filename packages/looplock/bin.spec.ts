@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { after, test } from 'node:test';
 
-import { spill } from './engine.ts';
+import { spill } from './engine/spill.ts';
 import { askedRun, BIN, makeLoop, runPath, startedRun } from './mcp/spec/fixtures.ts';
 
 const cli = (...args: string[]) => spawnSync(process.execPath, [BIN, ...args], { encoding: 'utf8' });

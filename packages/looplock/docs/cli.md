@@ -1,13 +1,15 @@
 # CLI reference
 
-After you install Looplock, run each command as `npx looplock <COMMAND>`. Run every command from the root of the repository the loop works on, because the hooks receive that directory as `root`. Each command prints one line of JSON on stdout, except `validate`, which prints text. A command exits with `0` on success, `1` on a usage error, and `2` on a refusal, with the reason on stderr. The CLI groups a refusal's lines by file and section. A refusal over 20,000 characters goes whole to the run folder's `out/`, and stderr keeps its first 40 lines, each cut to 400 characters, and names the file.
+After you install Looplock, run each command as `npx looplock <COMMAND>`. Without an install, run it as `npx @push-based/looplock <COMMAND>`. Run every command from the root of the repository the loop works on, because the hooks receive that directory as `root`. Each command prints one line of JSON on stdout, except `validate` and `build-loop`, which print text. A command exits with `0` on success, `1` on a usage error, and `2` on a refusal, with the reason on stderr. The CLI groups a refusal's lines by file and section. A refusal over 20,000 characters goes whole to the run folder's `out/`, and stderr keeps its first 40 lines, each cut to 400 characters, and names the file.
 
-The following table lists the 11 commands:
+The following table lists the 14 commands:
 
 | Command | Flags | Output |
 | --- | --- | --- |
-| `new` | `--config <LOOP_FILE> --run <RUN> [--<INPUT> <VALUE> …]` | `{ ok, status, warnings }`. The loop's preflight runs first, and its errors refuse the run. `new` also refuses a run file that exists and a run folder that holds other files. |
+| `init` | `[--to <DIR>]` | `{ ok, config }`: copies the default loop to `DIR`, `loops/default` when left out, and prints the path of its loop file. Refuses a folder that exists. It leaves out `default.spec.mts`, which runs the CLI of the Looplock package. |
+| `build-loop` | None | Text: the build-loop skill, which designs a loop file with the user, then the loop file reference and the hooks template it reads, each after a line that names its file. |
 | `compile` | `--config <LOOP_FILE>` | `{ config }`: the compiled loop, each hook as its `"<file>#<export>"` and each step's outcomes resolved to their targets. |
+| `new` | `--config <LOOP_FILE> --run <RUN> [--<INPUT> <VALUE> …]` | `{ ok, status, warnings }`. The loop's preflight runs first, and its errors refuse the run. `new` also refuses a run file that exists and a run folder that holds other files. |
 | `next` | `--run <RUN>` | A dispatch, `{ do: "dispatch", id, agent, message }`, or a stop. A repeated call returns the open dispatch or the same stop. |
 | `result` | `--run <RUN> [--id <N>]` | Runs the guard of the open step's document, follows the machine to its status's target, and prints `closed` and the next move, as `next` prints it. `closed` is `{ id, step, outcome }`: the dispatch the call closed, and its outcome, a status, `refused`, or `unusable`. With `--id`, the call refuses before any hook runs unless dispatch `N` is the open one. |
 | `show` | `--run <RUN>` | The run's state: status, inputs, gate decisions, questions, freezes, warnings, `opens`, the times the current step opened since the last human move, and the open dispatch. |
@@ -16,6 +18,7 @@ The following table lists the 11 commands:
 | `answer` | `--run <RUN> --answers <JSON_ARRAY>`, or `--run <RUN> --id <ID> --option <KEY\|custom> --answer <WORDS>` | `{ ok, answered, pending }`. Records every answer or none, and for each resolves the question and freezes its file. |
 | `gate` | `<NAME> --run <RUN> --decision approved\|rejected [--note <TEXT>]` | `{ ok, gate, decision, status, note }`. A rejection needs `--note`. |
 | `transition` | `--run <RUN> --to <STATE> --note <TEXT>` | `{ ok, status, blockedFrom }`. Moves the run along a human move of its state. |
+| `mcp` | None | Starts the MCP server over stdio. Each tool call runs one of these commands. For the tools, see [MCP server](mcp.md). |
 | `--version` | None | The version. |
 
 ## One command at a time

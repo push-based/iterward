@@ -27,7 +27,7 @@ import { loadRun } from './run/load-run.ts';
 import { newRun } from './run/new-run.ts';
 import { saveRun } from './run/save-run.ts';
 import { transition } from './run/transition.ts';
-import { fileSha256 } from './util.ts';
+import { fileSha256, VERSION, versionLine } from './util.ts';
 
 const FIXTURE = fileURLToPath(new URL('../spec/loop/fixture.loop.json', import.meta.url));
 const HOOKS = ['preflight', 'guard', 'planGuard', 'onAnswer', 'onEnter'];
@@ -113,6 +113,19 @@ test('a run refuses to load after its loop or a hook module changed', async () =
     writeFileSync(join(env.dir, 'loop/spy.mjs'), `${SPY}\n// changed`);
     const changed = context(await loadLoop(join(env.dir, 'loop/fixture.loop.json')));
     assert.throws(() => loadRun(changed, env.runPath), /the loop changed since the run started/);
+});
+
+test('a run refuses to load under another version line of the engine, or with no engine, and loads under another patch version', async () => {
+    assert.deepEqual(['0.4.0', '0.4.9-beta.1', '1.2.3'].map(versionLine), ['0.4', '0.4', '1']);
+    const env = await started();
+    assert.equal(env.run.engine, VERSION);
+    const load = (engine?: string) => {
+        writeFileSync(env.runPath, JSON.stringify({ ...env.run, engine }));
+        return () => loadRun(env.ctx, env.runPath);
+    };
+    assert.equal(load(`${versionLine(VERSION)}.999`)().engine, `${versionLine(VERSION)}.999`);
+    assert.throws(load('99.0.0'), new RegExp(`^Error: the run started under looplock 99.0.0, and this is looplock ${VERSION}; continue it with npx @push-based/looplock@99, or start a new run$`));
+    assert.throws(load(undefined), /invalid run shape: engine must name the Looplock version that started the run/);
 });
 
 test('the question scan takes new question files at any state, in numeric order', async () => {

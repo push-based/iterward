@@ -1,6 +1,6 @@
 import type { Run } from '../../config.ts';
 import type { Ctx } from '../context.ts';
-import { hasText } from '../util.ts';
+import { hasText, VERSION } from '../util.ts';
 
 /**
  * A fresh run at the loop's first step, which the caller saves. The loop's preflight runs first: an error refuses
@@ -15,6 +15,7 @@ export async function newRun({ cfg }: Ctx, runPath: string, inputs: Record<strin
     if (errors.length) throw new Error(errors.join('\n'));
     return {
         config: { path: configPath, sha256: cfg.sha256 },
+        engine: VERSION,
         inputs: kept,
         status: cfg.start,
         warnings: [...warnings],

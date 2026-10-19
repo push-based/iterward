@@ -10,13 +10,13 @@ Turn a workflow the user has in their head into a Looplock loop file that compil
 
 Why it works this way: a loop file is a state machine, and its value comes from declaring every outcome's target. A user describes the happy path and forgets the failures, the human decisions, and the retries. The grilling exists to surface those branches; the compiler exists to prove the result is a loop the engine can run.
 
-Before the first question, read [references/loop-file.md](references/loop-file.md). It holds the schema, the semantics each design choice depends on, and every check the compiler runs. Don't draft from memory: the compiler refuses unknown fields and reserved names.
+Before the first question, read [references/loop-file.md](references/loop-file.md). It holds the schema, the semantics each design choice depends on, and every check the compiler runs. Don't draft from memory: the compiler refuses unknown fields and reserved names. If you received this skill from the `build-loop` tool or command, the reference and the hooks template follow these instructions, each after a line that names its file.
 
 ## Phase 1: Look up the facts
 
 Find the facts yourself instead of asking for them:
 
-- **The looplock CLI.** Use the first that exists: `node_modules/.bin/looplock` in the working directory (run it as `npx looplock`), `bin.ts` in the working directory when it is the Looplock package folder (run it as `node bin.ts`), or `bin.ts` two directories up from this skill's real path (`realpath` the skill directory first, because the skill can be a symlink). If none exists, tell the user the file can't be compiled here and ask where Looplock is installed.
+- **The compiler.** Use the first that works: the `compile` tool of the Looplock MCP server, `npx looplock compile` when `node_modules/.bin/looplock` exists in the working directory, `node packages/looplock/bin.ts compile` in a clone of the Looplock repository (`node bin.ts compile` in its package folder), or `npx -y @push-based/looplock compile`. The tool takes the loop file as `config`, and each command takes it as `--config`.
 - **Existing loops.** Search for `*.loop.json` and `hooks.mts` files. If the user is extending one, start the draft from it instead of a blank page.
 - **Agents.** Look for agent definitions (`agents/*.md`, `.claude/agents/*.md`, `AGENTS.md`). Reuse their names as step agents so the loop matches what the orchestrator dispatches.
 
@@ -83,7 +83,7 @@ After the user confirms:
 1. If a target file exists, show what differs and ask before you replace it.
 2. Write the loop file. Use two-space indentation, keep each step, artifact, and gate on one line as `examples/default/default.loop.json` does, and order the top-level fields as the schema lists them.
 3. Write `hooks.mts` from [assets/hooks.mts](assets/hooks.mts). Keep only the exports the loop names, and add each other hook the loop names with the signature in the template's comments. A stub returns the value that accepts (`[]` for `onEnter`, no errors for `preflight`), and says so in a comment so the user knows what to fill in.
-4. Run `looplock compile --config <LOOP_FILE>` with the CLI from phase 1. If it refuses the file, the message names the place at fault: fix the file and run it again. Don't change the user's decisions to make it compile; if a decision can't compile, ask again with the reason.
+4. Compile the loop file with the compiler from phase 1. If it refuses the file, the message names the place at fault: fix the file and run it again. Don't change the user's decisions to make it compile; if a decision can't compile, ask again with the reason.
 5. Read the compiled output, and check that each step's outcomes resolve to the targets the user chose.
 
 ## Phase 6: Report

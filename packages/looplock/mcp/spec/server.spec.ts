@@ -1,24 +1,21 @@
 /**
  * node --test mcp/spec/server.spec.ts
  *
- * Proves the MCP server's contract: the handshake, one tool per CLI command, and a tool call routed to its
- * tool, over stdio.
+ * Proves the MCP server's contract: `looplock mcp` starts it, the handshake, one tool per CLI command, and a
+ * tool call routed to its tool, over stdio.
  */
 
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { after, test } from 'node:test';
-import { fileURLToPath } from 'node:url';
 
 import { asArguments } from '../tools.ts';
 import { BIN, startedRun } from './fixtures.ts';
 
-const SERVER = fileURLToPath(new URL('../server.ts', import.meta.url));
-
-/** A server process, and `call` for a request's reply. */
+/** A server process, started as `looplock mcp`, and `call` for a request's reply. */
 function server() {
-    const proc = spawn(process.execPath, [SERVER], { stdio: ['pipe', 'pipe', 'inherit'] });
+    const proc = spawn(process.execPath, [BIN, 'mcp'], { stdio: ['pipe', 'pipe', 'inherit'] });
     after(() => proc.kill());
     const waiting = new Map<number, (msg: any) => void>();
     createInterface({ input: proc.stdout }).on('line', (line) => {
@@ -35,17 +32,18 @@ function server() {
     return { call };
 }
 
-test('the handshake names the server, and tools/list lists the 8 tools, one per CLI command but compile and dispatch', async () => {
+test('the handshake names the server and points at build-loop, and tools/list lists one tool per CLI command but dispatch', async () => {
     const s = server();
     const init = await s.call('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'spec', version: '0' } });
     assert.deepEqual([init.result.protocolVersion, init.result.serverInfo.name], ['2025-06-18', 'looplock']);
-    assert.equal((await s.call('initialize', { protocolVersion: '1999-01-01' })).result.protocolVersion, '2025-06-18');
-    const commands = spawnSync(process.execPath, [BIN], { encoding: 'utf8' }).stderr.match(/<(.+)>/)![1].split('|');
+    assert.match(init.result.instructions, /call `build-loop` first/);
+    assert.equal((await s.call('initialize', { protocolVersion: '1999-01-01' })).result.protocolVersion, '2025-11-25');
+    const commands = spawnSync(process.execPath, [BIN], { encoding: 'utf8' }).stderr.match(/<(.+)>/)![1].split('|').filter((c) => c !== 'mcp');
     const { tools } = (await s.call('tools/list')).result;
-    assert.deepEqual(tools.map((t: any) => t.name), ['new', 'next', 'result', 'show', 'validate', 'answer', 'gate', 'transition']);
-    // `compile` prints a loop for its author, and `dispatch` serves a harness's watcher through the CLI; no agent needs either.
-    assert.deepEqual(tools.map((t: any) => t.name), commands.filter((c) => c !== 'compile' && c !== 'dispatch'));
-    assert.deepEqual(tools.filter((t: any) => t.annotations.readOnlyHint).map((t: any) => t.name), ['show']);
+    assert.deepEqual(tools.map((t: any) => t.name), ['init', 'build-loop', 'compile', 'new', 'next', 'result', 'show', 'validate', 'answer', 'gate', 'transition']);
+    // `dispatch` serves a harness's watcher through the CLI; no agent needs it.
+    assert.deepEqual(tools.map((t: any) => t.name), commands.filter((c) => c !== 'dispatch'));
+    assert.deepEqual(tools.filter((t: any) => t.annotations.readOnlyHint).map((t: any) => t.name), ['build-loop', 'compile', 'show']);
     assert.equal((await s.call('bogus')).error.code, -32601);
 });
 
