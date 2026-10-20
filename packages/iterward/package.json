@@ -6,7 +6,7 @@
   "type": "module",
   "exports": { ".": { "types": "./dist/engine.d.ts", "default": "./dist/engine.js" } },
   "bin": { "iterward": "./dist/bin.js" },
-  "files": ["dist", "examples", "skills", "!skills/*/evals"],
+  "files": ["dist", "docs", "examples", "skills", "!skills/*/evals"],
   "engines": { "node": ">=22.18" },
   "repository": { "type": "git", "url": "git+https://github.com/push-based/iterward.git", "directory": "packages/iterward" },
   "publishConfig": { "access": "public" },

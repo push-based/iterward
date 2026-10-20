@@ -122,7 +122,7 @@ Iterward needs Node.js 22.18 or later and has no npm dependencies. Install it as
 npm install --save-dev @push-based/iterward
 ```
 
-The package gives you the `iterward` command, which you run as `npx iterward`, the engine, which a test imports from `@push-based/iterward`, the MCP server, the default loop, and the build-loop skill. To work on Iterward itself, see the [repository README](../../README.md).
+The package gives you the `iterward` command, which you run as `npx iterward`, the engine, which a test imports from `@push-based/iterward`, the MCP server, the default loop, and the build-loop skill. To work on Iterward itself, see the [repository README](https://github.com/push-based/iterward#readme).
 
 To try Iterward without an install, run each command as `npx @push-based/iterward`, such as `npx @push-based/iterward init`. An install pins the version your runs use, and lets a test import the engine.
 
