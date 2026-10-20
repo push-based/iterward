@@ -169,6 +169,14 @@ test('answer calls onAnswer, resolves the question, and freezes its file, at any
     assert.deepEqual([built.run.status, built.run.questions[0].status], ['build', 'resolved']);
 });
 
+test('an onAnswer that throws a string refuses the call with that string', async () => {
+    const env = await started();
+    env.write('Q-1.md');
+    scanQuestions(env.ctx, env.runPath, env.run);
+    spy({ onAnswer: () => { throw 'Q-1.md § Options: no option Z'; } });
+    await rejects(answerQuestions(env.ctx, env.runPath, env.run, [{ id: 'Q-1', option: 'Z', answer: 'z' }]), /^Error: Q-1\.md § Options: no option Z\nthe answer to Q-1 was refused/);
+});
+
 test('answer checks every entry before any hook runs, and refuses the call with every problem', async () => {
     const env = await started();
     for (const f of ['Q-1.md', 'Q-2.md', 'Q-3.md']) env.write(f);

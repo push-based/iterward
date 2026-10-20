@@ -1,7 +1,7 @@
 import type { Question, Run } from '../../config.ts';
 import { type Ctx, hookCtx, inRunDir } from '../context.ts';
 import { freeze } from '../run/freezes.ts';
-import { hasText, now } from '../util.ts';
+import { hasText, messageOf, now } from '../util.ts';
 
 /**
  * Record the human's answers, all or none: each entry names a pending question, an option key or `custom`, and
@@ -32,7 +32,7 @@ export async function answerQuestions(ctx: Ctx, runPath: string, run: Run, answe
             freeze(runPath, run, q.file, id);
         } catch (e) {
             Object.assign(run, saved);
-            throw new Error(`${(e as Error).message}\nthe answer to ${id} was refused, so none of this call's answers was recorded`);
+            throw new Error(`${messageOf(e)}\nthe answer to ${id} was refused, so none of this call's answers was recorded`);
         }
         resolved.push(Object.assign(q, { status: 'resolved' as const, chosen: option, answer, resolvedAt: now() }));
     }

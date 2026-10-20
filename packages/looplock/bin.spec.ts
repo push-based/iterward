@@ -85,6 +85,14 @@ test('new runs the preflight: an error refuses the run, grouped, and writes noth
     assert.match(cli('new', '--config', config, '--run', join(dirname(run), 'other.json'), '--subject', 'c').stderr, /holds files from an earlier run/);
 });
 
+test('a hook that throws a string is a refusal with that string, exit 2', () => {
+    const dir = makeLoop();
+    const hooks = join(dir, 'hooks.mjs');
+    writeFileSync(hooks, readFileSync(hooks, 'utf8').replace('export const preflight = ', "export const preflight = () => { throw 'the repository has no lockfile'; };\nconst unused = "));
+    const res = cli('new', '--config', join(dir, 'loop.json'), '--run', runPath(), '--subject', 's');
+    assert.deepEqual([res.status, res.stderr], [2, 'other:\n  - the repository has no lockfile\n']);
+});
+
 test('next and result drive the run and save it; show prints its state; compile prints the loop with each outcome resolved', () => {
     const run = startedRun();
     const first = json(cli('next', '--run', run));

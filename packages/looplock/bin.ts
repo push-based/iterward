@@ -40,6 +40,7 @@ import { loadLoop, loop, printable, VERSION, type Run } from './engine.ts';
 import { pendingQuestions } from './engine/decisions/pending-questions.ts';
 import { openDispatch } from './engine/dispatch/internal/open-dispatch.ts';
 import { group, spill } from './engine/spill.ts';
+import { messageOf } from './engine/util.ts';
 
 /** The package folder, which holds the skills and the default loop in a clone and in an install. */
 const ROOT = dirname(findPackageJSON('./', import.meta.url)!);
@@ -279,7 +280,7 @@ export async function main(argv = process.argv.slice(2)) {
             process.exitCode = 1;
             return;
         }
-        const text = group((e as Error).message.split('\n'));
+        const text = group(messageOf(e).split('\n'));
         // A refused `new` spills nowhere, so its run folder stays as it was, and `dispatch` writes nothing.
         console.error(a.run && a._ !== 'new' && a._ !== 'dispatch' ? spill(dirname(a.run), a._, text) : text);
         process.exitCode = 2;

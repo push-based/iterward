@@ -90,6 +90,22 @@ test('a status, an artifact, or a gate named after a member every object has, su
     await assert.rejects(env.L.approve(env.runPath, env.run, 'toString'), /^Error: gate takes gate, not toString$/);
 });
 
+test('result: a guard that returns nothing is unusable, and a target\'s onEnter that throws a string refuses with that string', async () => {
+    const env = await started();
+    await env.next();
+    spy({ guard: () => undefined });
+    env.write('notes.md');
+    await env.result();
+    assert.deepEqual([env.run.dispatches[0].outcome, env.run.dispatches[0].fixes], ['unusable', [`${join(env.runDir, 'notes.md')}: the guard returned neither a status nor errors`]]);
+
+    spy();
+    const built = await building();
+    spy({ onEnter: () => { throw 'tests failed'; } });
+    built.write('build.1.report.md');
+    await built.result();
+    assert.deepEqual([built.run.dispatches.at(-2)!.outcome, built.run.dispatches.at(-2)!.fixes], ['ok', ['tests failed']]);
+});
+
 test('result: guard errors open the step again with Fixes, the grouped lines, a new attempt, and a new per-attempt document; the fourth open parks', async () => {
     const env = await building();
     spy({ guard: (path: string) => ({ errors: [`${path.split('/').at(-1)} § Checks: line 3 declares no value`, `${path.split('/').at(-1)} § Checks: cites no path`, 'plan.md § Steps: no step'] }) });

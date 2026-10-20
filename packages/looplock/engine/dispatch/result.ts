@@ -6,7 +6,7 @@ import { pendingQuestions } from '../decisions/pending-questions.ts';
 import { scanQuestions } from '../decisions/scan-questions.ts';
 import { FreezeError } from '../run/freezes.ts';
 import { transition } from '../run/transition.ts';
-import { errorsOf, hasText } from '../util.ts';
+import { errorsOf, hasText, isObj, messageOf } from '../util.ts';
 import { close } from './internal/close.ts';
 import { info, openDispatch } from './internal/open-dispatch.ts';
 import { next, parked } from './next.ts';
@@ -48,7 +48,7 @@ async function follow(ctx: Ctx, runPath: string, run: Run, d: Dispatch): Promise
     const r = await cfg.artifacts[step.writes].guard!(dispatch.document, { ...hookCtx(runPath, run), event: 'result', dispatch });
     const errors = errorsOf(r);
     if (errors.length) return failed('refused', errors);
-    const status = (r as { status?: unknown }).status;
+    const status = isObj(r) && 'status' in r ? r.status : undefined;
     if (!hasText(status)) return failed('unusable', [`${d.document}: the guard returned neither a status nor errors`]);
     const target = Object.hasOwn(step.outcomes, status) ? step.outcomes[status] : undefined;
     if (!target) return failed('unusable', [`${d.agent} returned ${status}, which is not an outcome of ${d.name}: ${Object.keys(step.outcomes).join(', ')}`]);
@@ -61,7 +61,7 @@ async function follow(ctx: Ctx, runPath: string, run: Run, d: Dispatch): Promise
     try {
         await transition(ctx, runPath, run, typeof target === 'object' ? target.ask : target, { via: 'machine', dispatch });
     } catch (e) {
-        if (!(e instanceof FreezeError)) return failed(status, (e as Error).message.split('\n'));
+        if (!(e instanceof FreezeError)) return failed(status, messageOf(e).split('\n'));
         close(d, status);
         return parked(ctx, runPath, run, e.message);
     }
