@@ -1,6 +1,6 @@
 {
   "name": "@push-based/iterward",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "A deterministic control plane for agentic engineering workflows.",
   "license": "MIT",
   "type": "module",
