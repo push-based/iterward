@@ -59,7 +59,8 @@ function parse(argv: string[]): Record<string, any> {
     }
     for (; i < argv.length; i++) {
         const k = argv[i];
-        if (!k.startsWith('--')) throw new Usage(`unexpected argument ${k}`);
+        // `_` and `$` hold the command and its name, so neither is a flag.
+        if (!k.startsWith('--') || k === '--_' || k === '--$') throw new Usage(`unexpected argument ${k}`);
         if (argv[i + 1] === undefined) throw new Usage(`${k} needs a value`);
         a[k.slice(2)] = argv[++i];
     }

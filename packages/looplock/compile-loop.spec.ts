@@ -161,6 +161,8 @@ test('FAIL FAST: each fault refuses the configuration when it loads, naming the 
         [(l) => { l.limits = { opens: 0 }; }, /^Error: loop fixture, limits\.opens: must be a whole number from 1$/],
         [(l) => { l.limits = { opens: 2.5 }; }, /^Error: loop fixture, limits\.opens: must be a whole number from 1$/],
         [(l) => { l.inputs.required = 'subject'; }, /^Error: loop fixture, inputs\.required: must be a list of names$/],
+        [(l) => { l.inputs.required.push('config'); }, /^Error: loop fixture, inputs: config is a flag that new takes itself$/],
+        [(l) => { l.inputs.optional = ['_']; }, /^Error: loop fixture, inputs: _ is a flag that new takes itself$/],
     ];
     for (const [edit, message] of refused) {
         const loop = parsed();

@@ -22,6 +22,8 @@ const FIELDS: Record<string, [string, string[]]> = {
 const RESERVED = ['blocked', 'park', 'start'];
 /** Names every JavaScript object has, such as `constructor`: a lookup by one would find Object.prototype's member. */
 const INHERITED = new Set(Object.getOwnPropertyNames(Object.prototype));
+/** The flags `new` takes itself: an input takes its name as a flag of `new`. */
+const NEW_FLAGS = ['config', 'run', '_'];
 const NAME = /^[\w-]+$/;
 const HOOK = /^([^#]+)#([A-Za-z_$][\w$]*)$/;
 
@@ -84,8 +86,8 @@ export function compileLoop(file: LoopFile): LoopConfig {
     fields(file, 'loop', '');
     text(file.name, 'name');
     const inputs = fields(file.inputs, 'inputs', 'inputs');
-    names(inputs.required, 'inputs.required');
-    if (inputs.optional !== undefined) names(inputs.optional, 'inputs.optional');
+    const flag = [...names(inputs.required, 'inputs.required'), ...(inputs.optional === undefined ? [] : names(inputs.optional, 'inputs.optional'))].find((k) => NEW_FLAGS.includes(k));
+    if (flag) fail('inputs', `${flag} is a flag that new takes itself`);
     if (file.preflight !== undefined) hook(file.preflight, '/preflight', 'preflight');
     let questions: RegExp | undefined;
     if (file.questions !== undefined) {

@@ -79,6 +79,7 @@ The compiler refuses a loop file with any of these faults:
 - A step, gate, or stop name with characters other than letters, digits, `_`, and `-`; a name repeated across steps, gates, and stops; or one of the reserved names `blocked`, `park`, and `start`.
 - No step; a `writes` that isn't an artifact; an artifact that a step writes with no guard; outcomes that are empty or repeat; an outcome or input name with characters other than letters, digits, `_`, and `-`.
 - A name of a step, gate, stop, artifact, input, or outcome that every JavaScript object has, such as `constructor` or `toString`.
+- An input named `config`, `run`, or `_`, because `new` takes those flags itself.
 - An artifact `file` with `/`, `\`, or `..`; a `file` of `run.json` or `out`; a `file` that matches the questions pattern; or two artifacts with one `file`.
 - A `questions.file` without exactly one `{n}`, or with a path separator.
 - A `freezes` entry that isn't an artifact, is per attempt, or is frozen by another gate.
