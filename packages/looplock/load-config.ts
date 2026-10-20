@@ -5,7 +5,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -39,16 +39,26 @@ export async function loadLoop(path: string): Promise<LoopConfig> {
     return config;
 }
 
+/** A comment, or a string, which the comment scan keeps whole so a `//` inside it starts no comment. */
+const COMMENT = /("(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^`\\])*`)|\/\/[^\n]*|\/\*[\s\S]*?\*\//g;
+/**
+ * A static import or re-export of a relative path, at the start of a line or after a `;`: `import './a.mts'`,
+ * `import { a } from './a.mts'`, or `export * from './a.mts'`. An `import` inside a string, such as a stylesheet
+ * line, isn't one, and neither is a path in an `export const`.
+ */
+const IMPORT = /(?:^|;)\s*(?:import|export)\s+(?:[\w$*{}\s,]+?\s+from\s+)?['"](\.{1,2}\/[^'"]+)['"]/gm;
+
 /** `entry` and the files it imports with relative static imports, transitively. */
 function configFiles(entry: string): string[] {
     const seen = new Set<string>();
     const visit = (file: string) => {
         if (seen.has(file)) return;
         seen.add(file);
-        // Static import and export statements only: an `import` inside a string, such as a stylesheet line, isn't one.
-        for (const m of readFileSync(file, 'utf8').matchAll(/^\s*(?:import|export)\b[^;'"]*?(?:from\s*)?['"](\.{1,2}\/[^'"]+)['"]/gm)) {
+        // ponytail: a regex, not a parser; a regex literal that holds a quote or a backtick can hide the imports after it. Use a lexer if a hook module needs one.
+        const code = readFileSync(file, 'utf8').replace(COMMENT, (m, str) => str ?? m.replace(/[^\n]/g, ''));
+        for (const m of code.matchAll(IMPORT)) {
             const dep = resolve(dirname(file), m[1]);
-            if (existsSync(dep)) visit(dep);
+            if (statSync(dep, { throwIfNoEntry: false })?.isFile()) visit(dep);
         }
     };
     visit(resolve(entry));

@@ -1,6 +1,6 @@
 # Configuration
 
-A loop is one JSON file, and its hooks are named exports of ES modules beside it. `loadLoop` in `load-config.ts` reads the file, imports each hook, and compiles it to the `LoopConfig` the engine runs. To start a loop of your own, copy `examples/default/`, and pass your loop file to `new --config`. A run refuses every command after its loop file, a hook module, or a local file a hook module imports changes, so start a new run after you edit a loop.
+A loop is one JSON file, and its hooks are named exports of ES modules beside it. `loadLoop` in `load-config.ts` reads the file, imports each hook, and compiles it to the `LoopConfig` the engine runs. To start a loop of your own, copy `examples/default/`, and pass your loop file to `new --config`. A run refuses every command after its loop file, a hook module, or a local file a hook module imports changes, so start a new run after you edit a loop. A local import is a static `import` or `export … from` whose path starts with `./` or `../`.
 
 ## The loop file
 

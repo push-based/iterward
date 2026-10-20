@@ -9,7 +9,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { appendFileSync, cpSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -190,4 +190,29 @@ test('the configuration hash changes when a hook module or a module it imports c
     assert.notEqual(third, second, 'a hook module is hashed');
     writeFileSync(path, JSON.stringify({ ...parsed(), limits: { opens: 4 } }));
     assert.notEqual((await loadLoop(path)).sha256, third, 'the loop file is hashed');
+});
+
+test('the configuration hash follows each static import and re-export, also two on a line or one holding a comment, and no path in a string', async () => {
+    const path = copy();
+    const dir = join(path, '..');
+    for (const f of ['a.mts', 'b.mts', 'c.mts']) writeFileSync(join(dir, f), `export const ${f[0]}1 = 1;\n`);
+    mkdirSync(join(dir, 'agents'));
+    writeFileSync(join(dir, 'plan.md'), 'a plan\n');
+    appendFileSync(join(dir, 'hooks.mts'), [
+        "import {\n    a1, // the document's \"status\" line\n} from './a.mts';",
+        "import { b1 } from './b.mts'; export { c1 } from './c.mts';",
+        "export const AGENTS = './agents';",
+        "export const PLAN = './plan.md';",
+        'export const used = [a1, b1];',
+        '',
+    ].join('\n'));
+    let last = (await loadLoop(path)).sha256;
+    for (const f of ['a.mts', 'b.mts', 'c.mts']) {
+        appendFileSync(join(dir, f), '// changed\n');
+        const next = (await loadLoop(path)).sha256;
+        assert.notEqual(next, last, `${f} is hashed`);
+        last = next;
+    }
+    appendFileSync(join(dir, 'plan.md'), 'changed\n');
+    assert.equal((await loadLoop(path)).sha256, last, 'a path in an export const is no import');
 });
