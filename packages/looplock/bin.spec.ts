@@ -118,6 +118,11 @@ test('validate prints ok, or the grouped lines with exit 2; past 20,000 characte
     const file = /^… 361 more lines in (.+)$/.exec(long[40])![1];
     assert.equal(file, join(dirname(run), 'out', 'validate.1.txt'));
     assert.equal(readFileSync(file, 'utf8').split('\n').length, 401, 'the file holds the whole list');
+    rmSync(join(dirname(run), 'out'), { recursive: true });
+    writeFileSync(join(dirname(run), 'out'), 'a file where the spill folder goes');
+    const unspilled = cli('validate', 'plan', '--run', run);
+    assert.deepEqual([unspilled.status, unspilled.stderr.trimEnd().split('\n').length], [2, 401], 'a run folder that can\'t take the spill file leaves the whole text on stderr');
+    rmSync(join(dirname(run), 'out'));
     doc(run, 'build.2.report.md');
     writeFileSync(join(dirname(run), 'build.10.report.md'), '---\nid: build.10.report.md\n---\n');
     writeFileSync(join(dirname(run), 'errors.txt'), '');

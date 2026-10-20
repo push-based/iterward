@@ -67,6 +67,19 @@ test('result: a document stamped a few milliseconds before the dispatch opened i
     assert.deepEqual((await env.result()).closed, { id: 1, step: 'discovery', outcome: 'ok' });
 });
 
+test('result: a whole-second mtime up to 2 seconds before the dispatch opened is fresh, as HFS+ and FAT round an mtime down', async () => {
+    const env = await started();
+    await env.next();
+    env.write('notes.md');
+    const second = Math.floor(Date.parse(env.run.dispatches[0].openedAt) / 1000) * 1000 - 1000;
+    utimesSync(join(env.runDir, 'notes.md'), (second + 500) / 1000, (second + 500) / 1000);
+    assert.equal((await env.result()).closed.outcome, 'unusable', 'a mtime with milliseconds is exact');
+    env.write('notes.md');
+    utimesSync(join(env.runDir, 'notes.md'), second / 1000, second / 1000);
+    env.run.dispatches[1].openedAt = new Date(second + 1999).toISOString();
+    assert.equal((await env.result()).closed.outcome, 'ok');
+});
+
 test('result: the guard reads the status; a status outside the outcomes or none is unusable, and guard errors refuse', async () => {
     const env = await started();
     await env.next();

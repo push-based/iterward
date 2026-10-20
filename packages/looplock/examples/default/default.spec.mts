@@ -13,6 +13,8 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { onAnswer, planGuard } from './hooks.mts';
+
 const BIN = fileURLToPath(new URL('../../bin.ts', import.meta.url));
 const LOOP = fileURLToPath(new URL('default.loop.json', import.meta.url));
 
@@ -61,4 +63,17 @@ test('the default loop takes a run from plan to done', () => {
     const done = cli('result');
     assert.deepEqual([done.stop, done.status, done.moves], ['status', 'done', []]);
     assert.deepEqual([cli('show').status, cli('show').opens], ['done', 0]);
+});
+
+test('the hooks read a frontmatter with CRLF line endings or a byte order mark', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'looplock-default-'));
+    const plan = join(dir, 'plan.md');
+    for (const text of ['---\r\nid: p\r\nstatus: ok\r\n---\r\n', '\uFEFF---\nid: p\nstatus: ok\n---\n']) {
+        writeFileSync(plan, text);
+        assert.deepEqual(planGuard(plan), { status: 'ok' });
+    }
+    const question = join(dir, 'Q-1.md');
+    writeFileSync(question, '---\r\nid: Q-1\r\nstatus: pending\r\n---\r\nWhich one?\r\n');
+    onAnswer({ question: { id: 'Q-1', file: question }, option: 'A', answer: 'the first' });
+    assert.equal(readFileSync(question, 'utf8'), '---\nid: Q-1\nstatus: resolved\nchosen: A\nanswer: "the first"\n---\nWhich one?\r\n');
 });

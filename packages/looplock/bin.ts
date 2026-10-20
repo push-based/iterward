@@ -280,9 +280,15 @@ export async function main(argv = process.argv.slice(2)) {
             process.exitCode = 1;
             return;
         }
-        const text = group(messageOf(e).split('\n'));
-        // A refused `new` spills nowhere, so its run folder stays as it was, and `dispatch` writes nothing.
-        console.error(a.run && a._ !== 'new' && a._ !== 'dispatch' ? spill(dirname(a.run), a._, text) : text);
+        let out = group(messageOf(e).split('\n'));
+        // A refused `new` spills nowhere, so its run folder stays as it was, and `dispatch` writes nothing. A run
+        // folder that can't take the spill file leaves the whole text on stderr.
+        if (a.run && a._ !== 'new' && a._ !== 'dispatch') {
+            try {
+                out = spill(dirname(a.run), a._, out);
+            } catch {}
+        }
+        console.error(out);
         process.exitCode = 2;
     }
 }

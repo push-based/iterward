@@ -17,6 +17,12 @@ import { next, parked } from './next.ts';
  */
 // ponytail: a fixed allowance; a document written in the 50 ms before the dispatch opened counts as fresh.
 const CLOCK_GAP_MS = 50;
+/**
+ * How far a filesystem that stores whole seconds, such as HFS+ or FAT (2 seconds), rounds an mtime down. A
+ * whole-second mtime reads as one of those.
+ */
+// ponytail: on such a filesystem, a document written in the 2 seconds before the dispatch opened counts as fresh.
+const COARSE_MTIME_MS = 2000;
 
 /**
  * Close the open dispatch and follow the machine. With `id`, the open dispatch must be that one, checked before
@@ -44,7 +50,8 @@ async function follow(ctx: Ctx, runPath: string, run: Run, d: Dispatch): Promise
         close(d, outcome, fixes);
         return next(ctx, runPath, run);
     };
-    if (!existsSync(dispatch.document) || statSync(dispatch.document).mtimeMs < Date.parse(d.openedAt) - CLOCK_GAP_MS) return failed('unusable', [`${d.agent} wrote no ${d.document} during this dispatch`]);
+    const mtime = existsSync(dispatch.document) ? statSync(dispatch.document).mtimeMs : -Infinity;
+    if (mtime + (mtime % 1000 ? 0 : COARSE_MTIME_MS) < Date.parse(d.openedAt) - CLOCK_GAP_MS) return failed('unusable', [`${d.agent} wrote no ${d.document} during this dispatch`]);
     const r = await cfg.artifacts[step.writes].guard!(dispatch.document, { ...hookCtx(runPath, run), event: 'result', dispatch });
     const errors = errorsOf(r);
     if (errors.length) return failed('refused', errors);

@@ -61,7 +61,7 @@ Every stop lists the human's moves as data: the call that records each move, the
 
 `result` closes the open dispatch and follows the machine. Called with a dispatch id, it first refuses, before any hook runs, unless that dispatch is the open one. It returns `closed`, the dispatch it closed with its outcome, and the next move.
 
-1. **Freshness.** The document must exist, written no earlier than its dispatch opened.
+1. **Freshness.** The document must exist, written no earlier than its dispatch opened. The check allows 50 ms for a coarse system clock, and 2 seconds for a filesystem that stores whole seconds, such as HFS+ or FAT.
 2. **Guard.** The artifact's guard runs with `event: 'result'`, and returns the status or the errors.
 3. **Status.** The status must be an outcome of the step.
 4. **Questions.** New question files join the ledger.
