@@ -28,6 +28,7 @@ import { loadRun } from './run/load-run.ts';
 import { newRun } from './run/new-run.ts';
 import { saveRun } from './run/save-run.ts';
 import { transition } from './run/transition.ts';
+import { validate } from './views/validate.ts';
 import { fileSha256, VERSION, versionLine } from './util.ts';
 
 const FIXTURE = fileURLToPath(new URL('../spec/loop/fixture.loop.json', import.meta.url));
@@ -266,6 +267,14 @@ test('approval runs the guards with approve, records judged, freezes the files, 
     assert.deepEqual([other.run.status, other.run.gates.gate.decision, other.run.freezes], ['revision', 'rejected', {}]);
     assert.equal(Object.keys(other.run.gates.gate.history[0].judged).length, 3);
     await rejects(approve(other.ctx, other.runPath, other.run, 'gate'), /needs status gate, not revision/);
+});
+
+test('validate finds the latest file of a per-attempt artifact whose name holds {attempt} more than once', async () => {
+    const env = await setup((l) => { l.artifacts['build-report'].file = 'build-{attempt}.v{attempt}.md'; });
+    const run = await newRun(env.ctx, env.runPath, { subject: 's' }, join(env.dir, 'loop/fixture.loop.json'));
+    for (const f of ['build-1.v1.md', 'build-2.v2.md', 'build-3.v1.md']) env.write(f);
+    assert.deepEqual(await validate(env.ctx, env.runPath, run, 'build-report'), []);
+    assert.equal(guardCalls().at(-1)![1], join(env.dir, 'runs/a/build-2.v2.md'));
 });
 
 test('a transition runs the target\'s onEnter, and its errors refuse the move', async () => {

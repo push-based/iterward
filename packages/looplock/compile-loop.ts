@@ -42,8 +42,11 @@ export function setAt(target: object, pointer: string, value: unknown): void {
     keys.reduce((o: any, k) => o[k], target)[last] = value;
 }
 const isObj = (v: unknown): v is Record<string, any> => v != null && typeof v === 'object' && !Array.isArray(v);
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /** A question file template as a pattern: `{n}` becomes the one capture group. */
-const questionPattern = (template: string) => new RegExp(`^${template.split('{n}').map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('(\\d+)')}$`);
+const questionPattern = (template: string) => new RegExp(`^${template.split('{n}').map(escape).join('(\\d+)')}$`);
+/** An artifact's file as a pattern: each `{attempt}` matches the same attempt number, the first one captured. */
+export const attemptPattern = (file: string) => new RegExp(`^${file.split('{attempt}').map((s, i) => (i === 0 ? '' : i === 1 ? '([1-9]\\d*)' : '\\1') + escape(s)).join('')}$`);
 
 /** The configuration as JSON: each hook prints as its HookRef and the question pattern as its source. */
 export function printable(config: LoopConfig) {
@@ -108,7 +111,12 @@ export function compileLoop(file: LoopFile): LoopConfig {
         if (/[/\\]|\.\./.test(f)) fail(`${where}, file`, `${f} is not a plain file name in the run folder`);
         if (f === 'run.json' || f === 'out') fail(`${where}, file`, `${f} is a name the engine keeps`);
         if (questions?.test(f.replaceAll('{attempt}', '1'))) fail(`${where}, file`, `${f} matches the questions pattern`);
-        if (files.has(f)) fail(`${where}, file`, `artifact ${files.get(f)} has the file ${f} already`);
+        // ponytail: compares attempts 1 to 999, so two files that name the same file only past attempt 999 pass.
+        const filled = f.includes('{attempt}') ? Array.from({ length: 999 }, (_, n) => f.replaceAll('{attempt}', String(n + 1))) : [f];
+        for (const [g, b] of files) {
+            const same = attemptPattern(g);
+            if (filled.some((x) => same.test(x))) fail(`${where}, file`, g === f ? `artifact ${b} has the file ${f} already` : `${f} and ${g}, the file of artifact ${b}, can name the same file`);
+        }
         files.set(f, a);
         artifacts[a] = { file: f };
         if (spec.guard !== undefined) hook(spec.guard, ptr('artifacts', a, 'guard'), `${where}, guard`);

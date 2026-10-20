@@ -132,7 +132,7 @@ When the loop file loads, the loader refuses it on each of these faults, with th
 - A name of a step, gate, stop, artifact, input, or outcome that every JavaScript object has, such as `constructor` or `toString`.
 - An input named `config`, `run`, or `_`, because `new` takes those flags itself.
 - No step, a `writes` that isn't an artifact, an artifact a step writes with no guard, or outcomes that are empty or repeat.
-- An artifact `file` that isn't a plain file name, repeats, matches the questions pattern, or is a name the engine keeps.
+- An artifact `file` that isn't a plain file name, can name the same file as another artifact's for some attempt, matches the questions pattern, or is a name the engine keeps.
 - A `freezes` entry that isn't an artifact, names a per-attempt artifact, or names an artifact another gate freezes.
 - No `start`, or a `start` that isn't a step.
 - A machine key that isn't `start`, a step's declared outcome, a `*` outcome some step declares, or a gate's `approve` or `reject`.

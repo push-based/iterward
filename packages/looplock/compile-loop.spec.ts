@@ -156,6 +156,8 @@ test('FAIL FAST: each fault refuses the configuration when it loads, naming the 
         [artifact('out'), /^Error: loop fixture, artifact plan, file: out is a name the engine keeps$/],
         [artifact('Q-{attempt}.md'), /^Error: loop fixture, artifact plan, file: Q-\{attempt\}\.md matches the questions pattern$/],
         [artifact('diff.md'), /^Error: loop fixture, artifact (plan|diff), file: artifact (plan|diff) has the file diff\.md already$/],
+        [artifact('build.2.report.md'), /^Error: loop fixture, artifact build-report, file: build\.\{attempt\}\.report\.md and build\.2\.report\.md, the file of artifact plan, can name the same file$/],
+        [(l) => { l.artifacts['verify-report'].file = 'build.1{attempt}.report.md'; }, /^Error: loop fixture, artifact verify-report, file: build\.1\{attempt\}\.report\.md and build\.\{attempt\}\.report\.md, the file of artifact build-report, can name the same file$/],
         [(l) => { l.questions.file = 'Q.md'; }, /^Error: loop fixture, questions\.file: a plain file name in the run folder with one \{n\}/],
         [(l) => { l.questions = 'Q-{n}.md'; }, /^Error: loop fixture, questions: questions is an object$/],
         [(l) => { l.limits = { opens: 0 }; }, /^Error: loop fixture, limits\.opens: must be a whole number from 1$/],
