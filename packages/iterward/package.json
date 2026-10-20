@@ -8,7 +8,7 @@
   "bin": { "iterward": "./dist/bin.js" },
   "files": ["dist", "examples", "skills", "!skills/*/evals"],
   "engines": { "node": ">=22.18" },
-  "repository": { "type": "git", "url": "git+https://github.com/push-based/looplock.git", "directory": "packages/iterward" },
+  "repository": { "type": "git", "url": "git+https://github.com/push-based/iterward.git", "directory": "packages/iterward" },
   "publishConfig": { "access": "public" },
   "nx": { "name": "iterward" },
   "scripts": { "build": "rm -rf dist && tsc -p tsconfig.build.json && chmod +x dist/bin.js", "test": "node --test '**/*.spec.ts' '**/*.spec.mts'" },
