@@ -55,24 +55,10 @@ Agents own execution. Iterward owns protocol. A dispatch can go to Claude Code, 
 
 Your orchestrator drives the loop with two calls, plus one command for each human move. `next` prints the move the run needs. `result` hands the document the agent wrote to its guard, which returns the status, and follows the loop's machine to the status's target. The following diagram shows one dispatch and one human stop:
 
-```mermaid
-sequenceDiagram
-    actor Human
-    participant O as Orchestrator
-    participant L as iterward
-    participant A as Agent
-    O->>L: next
-    L-->>O: dispatch (agent, message)
-    O->>A: message
-    A->>A: Do the work, write the document
-    A-->>O: Reply for the human
-    O->>L: result
-    L->>L: Read the status through the guard, follow the machine
-    L-->>O: Next dispatch, or a stop with the human's moves
-    O->>Human: Stop summary and moves
-    Human-->>O: Answer, gate decision, or transition
-    O->>L: answer, gate, or transition
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/push-based/iterward/main/assets/how-iterward-works-dark.svg">
+  <img src="https://raw.githubusercontent.com/push-based/iterward/main/assets/how-iterward-works.svg" alt="Sequence diagram: the orchestrator calls next, carries the dispatch to the agent, reports the result, and relays the stop to the human.">
+</picture>
 
 The `iterward` CLI keeps each run's state in a `run.json` file and refuses any move the loop doesn't declare. The orchestrator doesn't interpret routing instructions: it carries each message to its agent and each result back to the CLI, and it can be an agent, a script, or you at a terminal. A sub-agent doesn't need the orchestration graph either. It receives one task, performs it, and writes one document whose frontmatter carries its status. The agent can still write a human-readable reply, but Iterward reads only the document, and only through your hooks.
 

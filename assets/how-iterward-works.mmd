@@ -1,0 +1,16 @@
+sequenceDiagram
+    actor Human
+    participant O as Orchestrator
+    participant L as iterward
+    participant A as Agent
+    O->>L: next
+    L-->>O: dispatch (agent, message)
+    O->>A: message
+    A->>A: Do the work, write the document
+    A-->>O: Reply for the human
+    O->>L: result
+    L->>L: Read the status through the guard, follow the machine
+    L-->>O: Next dispatch, or a stop with the human's moves
+    O->>Human: Stop summary and moves
+    Human-->>O: Answer, gate decision, or transition
+    O->>L: answer, gate, or transition
