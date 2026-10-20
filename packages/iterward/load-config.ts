@@ -18,7 +18,7 @@ export async function loadLoop(path: string): Promise<LoopConfig> {
     try {
         file = JSON.parse(readFileSync(path, 'utf8'));
     } catch (e) {
-        throw new Error(`loop file ${path}: ${(e as Error).message}`);
+        throw new Error(`loop file ${path}: ${(e as Error).message}`, { cause: e });
     }
     const config = compileLoop(file);
     const dir = dirname(resolve(path));
@@ -29,7 +29,7 @@ export async function loadLoop(path: string): Promise<LoopConfig> {
         try {
             mod = await import(pathToFileURL(resolve(dir, module)).href);
         } catch (e) {
-            throw new Error(`${place}: ${module} can't be imported: ${String((e as Error).message).split('\n')[0]}`);
+            throw new Error(`${place}: ${module} can't be imported: ${String((e as Error).message).split('\n')[0]}`, { cause: e });
         }
         if (!Object.hasOwn(mod, name)) throw new Error(`${place}: ${module} has no export ${name}`);
         if (typeof mod[name] !== 'function') throw new Error(`${place}: ${module}'s export ${name} is not a function`);
