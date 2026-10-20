@@ -5,6 +5,8 @@
   </picture>
 </h1>
 
+[![npm](https://img.shields.io/npm/v/@push-based/iterward)](https://www.npmjs.com/package/@push-based/iterward)
+
 LLMs do the work. Iterward decides what happens next.
 
 Iterward is a deterministic control plane for agentic engineering workflows. It moves routing, retries, approvals, failures, and stop conditions out of prompts and into a loop file and code that you can test. Agents own execution, and Iterward owns protocol: a run moves only along the transitions its loop file declares, and Iterward records every human move.
