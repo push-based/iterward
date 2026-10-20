@@ -23,7 +23,7 @@ An artifact is `{ "file": NAME, "guard"?: HOOK }`. `file` is a plain file name i
 
 The guard belongs to the document. It runs on the result of the step that writes the document, on entering the gate that freezes it, on that gate's approval, and on the `validate` command. It returns `{ "status": STATUS }` or `{ "errors": [LINE, …] }`. On a step's result, the status is the step's outcome; at a gate and on `validate`, only the errors count. How an agent records its status in the document is the loop's concern: the guard reads it.
 
-An artifact that no step writes is one that code writes, such as a file a guard writes. A gate can freeze it, so the approval freezes what the human saw.
+An artifact that no step writes is one that code writes, such as a file a guard writes. A gate can freeze it, so the approval freezes what the human saw. No step rewrites such an artifact, so to let a human release its freeze after the file changes, declare a human move into its gate.
 
 ## Steps
 
@@ -82,7 +82,7 @@ The following excerpt maps the outcomes of a planner, a builder, and a verifier:
 
 `human` maps a step or a stop to the states a human can move it to with `transition`: `{ "verify": ["plan", "build"] }`. A gate's moves are its decisions. A blocked run's moves are the resume into the step it parked from, plus the human moves of that step. Two effects are engine rules, not configuration:
 
-- A human move or a gate decision into a step that writes a frozen artifact drops the freeze and the decision of the gate that froze it.
+- A human move or a gate decision into a gate drops that gate's freeze and decision, and one into a step that writes a frozen artifact drops the freeze and the decision of the gate that froze it. A gate decision keeps the decision it records.
 - Every human move re-freezes the answered question files at their current bytes, so an edited or deleted question file never traps the run.
 
 ## Limits
