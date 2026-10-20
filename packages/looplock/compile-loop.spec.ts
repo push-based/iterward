@@ -112,6 +112,11 @@ test('FAIL FAST: each fault refuses the configuration when it loads, naming the 
         [(l) => { l.stops.blocked = {}; }, /^Error: loop fixture, stop blocked: blocked is a name the engine keeps$/],
         [(l) => { l.stops['re.lease'] = {}; }, /^Error: loop fixture, stop re\.lease: a name takes letters, digits, _, and -$/],
         [(l) => { l.steps = {}; }, /^Error: loop fixture, steps: declare at least one step$/],
+        // A name every JavaScript object has, such as constructor, would look up Object.prototype's member.
+        [(l) => { l.stops.toString = {}; }, /^Error: loop fixture, stop toString: toString is a name every JavaScript object has$/],
+        [(l) => { l.inputs.optional = ['constructor']; }, /^Error: loop fixture, inputs\.optional: constructor is a name every JavaScript object has$/],
+        [(l) => { l.steps.build.outcomes.push('valueOf'); }, /^Error: loop fixture, step build, outcomes: valueOf is a name every JavaScript object has$/],
+        [(l) => { l.artifacts.hasOwnProperty = { file: 'x.md' }; }, /^Error: loop fixture, artifact hasOwnProperty: hasOwnProperty is a name every JavaScript object has$/],
         // Steps.
         [(l) => { l.steps.build.writes = 'nope'; }, /^Error: loop fixture, step build, writes: nope is not an artifact$/],
         [(l) => { l.steps.build.writes = 'diff'; }, /^Error: loop fixture, step build, writes: artifact diff has no guard, and its guard returns the step's status$/],

@@ -20,6 +20,8 @@ const FIELDS: Record<string, [string, string[]]> = {
 };
 /** Names the engine keeps: a step, gate, or stop can't take one. */
 const RESERVED = ['blocked', 'park', 'start'];
+/** Names every JavaScript object has, such as `constructor`: a lookup by one would find Object.prototype's member. */
+const INHERITED = new Set(Object.getOwnPropertyNames(Object.prototype));
 const NAME = /^[\w-]+$/;
 const HOOK = /^([^#]+)#([A-Za-z_$][\w$]*)$/;
 
@@ -65,7 +67,14 @@ export function compileLoop(file: LoopFile): LoopConfig {
         return o;
     };
     const text = (v: unknown, where: string): string => (typeof v === 'string' && v ? v : fail(where, 'must be a nonempty string'));
-    const names = (v: unknown, where: string): string[] => (Array.isArray(v) && v.every((s) => typeof s === 'string' && NAME.test(s)) ? v : fail(where, 'must be a list of names'));
+    const inherited = (n: string, where: string) => {
+        if (INHERITED.has(n)) fail(where, `${n} is a name every JavaScript object has`);
+    };
+    const names = (v: unknown, where: string): string[] => {
+        if (!Array.isArray(v) || !v.every((s) => typeof s === 'string' && NAME.test(s))) return fail(where, 'must be a list of names');
+        for (const s of v) inherited(s, where);
+        return v;
+    };
     const hooks: Record<string, HookRef> = {};
     const hook = (ref: unknown, pointer: string, where: string) => {
         if (typeof ref !== 'string' || !HOOK.test(ref)) fail(where, 'a hook is "<file>#<export>", the file relative to the loop file');
@@ -92,6 +101,7 @@ export function compileLoop(file: LoopFile): LoopConfig {
     const files = new Map<string, string>();
     for (const [a, spec] of Object.entries(file.artifacts)) {
         const where = `artifact ${a}`;
+        inherited(a, where);
         const f = text(fields(spec, 'artifact', where).file, `${where}, file`);
         if (/[/\\]|\.\./.test(f)) fail(`${where}, file`, `${f} is not a plain file name in the run folder`);
         if (f === 'run.json' || f === 'out') fail(`${where}, file`, `${f} is a name the engine keeps`);
@@ -110,6 +120,7 @@ export function compileLoop(file: LoopFile): LoopConfig {
         for (const [n, def] of Object.entries(v)) {
             const at = `${k} ${n}`;
             if (!NAME.test(n)) fail(at, 'a name takes letters, digits, _, and -');
+            inherited(n, at);
             if (RESERVED.includes(n)) fail(at, `${n} is a name the engine keeps`);
             if (kind.has(n)) fail(at, `${kind.get(n)} ${n} has the name already`);
             kind.set(n, k);

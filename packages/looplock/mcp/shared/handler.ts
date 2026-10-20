@@ -62,7 +62,7 @@ function check(v: unknown, p: Prop, at: string): string[] {
 function invalid({ properties = {}, required = [] }: Pick<Prop, 'properties' | 'required'>, params: Params, at = ''): string[] {
     return [
         ...required.filter((k) => params[k] == null).map((k) => `${at}${k} is required`),
-        ...Object.entries(params).flatMap(([k, v]) => (properties[k] ? check(v, properties[k], `${at}${k}`) : [`unknown argument ${at}${k}`])),
+        ...Object.entries(params).flatMap(([k, v]) => (Object.hasOwn(properties, k) ? check(v, properties[k], `${at}${k}`) : [`unknown argument ${at}${k}`])),
     ];
 }
 

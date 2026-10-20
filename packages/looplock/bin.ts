@@ -262,7 +262,7 @@ export async function main(argv = process.argv.slice(2)) {
         process.exitCode = 1;
         return;
     }
-    const cmd = COMMANDS[a._];
+    const cmd = Object.hasOwn(COMMANDS, a._) ? COMMANDS[a._] : undefined;
     if (!cmd) {
         console.error(USAGE);
         process.exitCode = 1;

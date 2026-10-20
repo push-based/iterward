@@ -129,6 +129,7 @@ When the loop file loads, the loader refuses it on each of these faults, with th
 
 - A field the types don't name, a hook that isn't `"<file>#<export>"`, or a hook whose module or export is missing or isn't a function.
 - A step, gate, or stop name that isn't letters, digits, `_`, and `-`, repeats across the three, or is `blocked`, `park`, or `start`.
+- A name of a step, gate, stop, artifact, input, or outcome that every JavaScript object has, such as `constructor` or `toString`.
 - No step, a `writes` that isn't an artifact, an artifact a step writes with no guard, or outcomes that are empty or repeat.
 - An artifact `file` that isn't a plain file name, repeats, matches the questions pattern, or is a name the engine keeps.
 - A `freezes` entry that isn't an artifact, names a per-attempt artifact, or names an artifact another gate freezes.

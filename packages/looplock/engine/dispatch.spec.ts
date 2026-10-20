@@ -80,6 +80,16 @@ test('result: the guard reads the status; a status outside the outcomes or none 
     assert.deepEqual([path, ctx.event, ctx.dispatch.id, ctx.dispatch.attempt, ctx.runDir], [join(env.runDir, 'notes.md'), 'result', 2, 2, env.runDir]);
 });
 
+test('a status, an artifact, or a gate named after a member every object has, such as constructor, is refused as unknown', async () => {
+    const env = await started();
+    await env.next();
+    env.write('notes.md', 'constructor');
+    await env.result();
+    assert.deepEqual([env.run.dispatches[0].outcome, env.run.dispatches[0].fixes], ['unusable', ['scout returned constructor, which is not an outcome of discovery: ok, blocked']]);
+    await assert.rejects(env.L.validate(env.runPath, env.run, 'constructor'), /^Error: validate takes notes, plan, diff, build-report, verify-report, not constructor$/);
+    await assert.rejects(env.L.approve(env.runPath, env.run, 'toString'), /^Error: gate takes gate, not toString$/);
+});
+
 test('result: guard errors open the step again with Fixes, the grouped lines, a new attempt, and a new per-attempt document; the fourth open parks', async () => {
     const env = await building();
     spy({ guard: (path: string) => ({ errors: [`${path.split('/').at(-1)} § Checks: line 3 declares no value`, `${path.split('/').at(-1)} § Checks: cites no path`, 'plan.md § Steps: no step'] }) });

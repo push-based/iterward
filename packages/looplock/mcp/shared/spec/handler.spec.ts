@@ -43,6 +43,8 @@ test('a call the schema refuses never reaches the CLI, and the result lists ever
         'probe malformed call: run is required; decision must be one of approved, rejected; refs[1] must be a string; inputs.k must be a string; ' +
             'entries[1].id must be a string; entries[2].id is required; unknown argument entries[2].key; entries[3] must be an object; unknown argument extra',
     );
+    const inherited = await createHandler(schema, () => assert.fail('the CLI ran'))({ run: 'r', constructor: 'x' });
+    assert.equal(text(inherited), 'probe malformed call: unknown argument constructor');
 });
 
 test('a CLI refusal (exit 2) and a malformed CLI call (exit 1) come back as error results with the reason', async () => {

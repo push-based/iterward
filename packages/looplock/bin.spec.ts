@@ -59,6 +59,7 @@ test('usage errors exit 1, refusals exit 2, --version prints the version package
     const config = join(makeLoop(), 'loop.json');
     assert.equal(cli('--version').stdout, `${JSON.parse(readFileSync(new URL('package.json', import.meta.url), 'utf8')).version}\n`);
     assert.equal(cli('bogus').status, 1);
+    assert.equal(cli('toString').status, 1, 'a member every object has is no command');
     assert.equal(cli('gate', '--run', 'x').status, 1, 'gate needs a gate name');
     assert.equal(cli('new', '--config', config).status, 1, 'new needs --run');
     assert.equal(cli('new', '--config', config, '--run', runPath()).status, 1, 'new needs the inputs the loop requires');

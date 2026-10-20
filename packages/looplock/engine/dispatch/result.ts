@@ -50,7 +50,7 @@ async function follow(ctx: Ctx, runPath: string, run: Run, d: Dispatch): Promise
     if (errors.length) return failed('refused', errors);
     const status = (r as { status?: unknown }).status;
     if (!hasText(status)) return failed('unusable', [`${d.document}: the guard returned neither a status nor errors`]);
-    const target = step.outcomes[status];
+    const target = Object.hasOwn(step.outcomes, status) ? step.outcomes[status] : undefined;
     if (!target) return failed('unusable', [`${d.agent} returned ${status}, which is not an outcome of ${d.name}: ${Object.keys(step.outcomes).join(', ')}`]);
     scanQuestions(ctx, runPath, run);
     if (target === 'park') {

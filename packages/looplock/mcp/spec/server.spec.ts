@@ -45,6 +45,7 @@ test('the handshake names the server and points at build-loop, and tools/list li
     assert.deepEqual(tools.map((t: any) => t.name), commands.filter((c) => c !== 'dispatch'));
     assert.deepEqual(tools.filter((t: any) => t.annotations.readOnlyHint).map((t: any) => t.name), ['build-loop', 'compile', 'show']);
     assert.equal((await s.call('bogus')).error.code, -32601);
+    assert.equal((await s.call('constructor', { a: 1 })).error.code, -32601, 'a member every object has is no method');
 });
 
 test('tools/call returns the tool result, and refuses a tool that does not exist', async () => {

@@ -12,7 +12,7 @@ import { errorsOf } from '../util.ts';
  * artifact validates its highest-numbered existing file. An artifact without a guard has nothing to refuse.
  */
 export async function validate({ cfg }: Ctx, runPath: string, run: Run, artifact: string): Promise<string[]> {
-    const a = cfg.artifacts[artifact];
+    const a = Object.hasOwn(cfg.artifacts, artifact) ? cfg.artifacts[artifact] : undefined;
     if (!a) throw new Error(`validate takes ${Object.keys(cfg.artifacts).join(', ')}, not ${artifact}`);
     let file = a.file;
     if (file.includes('{attempt}')) {

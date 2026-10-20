@@ -47,7 +47,7 @@ async function reply(line: string): Promise<object | undefined> {
         return { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'a message must be one line of JSON' } };
     }
     if (msg?.id == null || typeof msg.method !== 'string') return;
-    const fn = METHODS[msg.method];
+    const fn = Object.hasOwn(METHODS, msg.method) ? METHODS[msg.method] : undefined;
     if (!fn) return { jsonrpc: '2.0', id: msg.id, error: { code: -32601, message: `no method ${msg.method}` } };
     try {
         return { jsonrpc: '2.0', id: msg.id, result: await fn(msg.params) };
