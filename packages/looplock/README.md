@@ -106,7 +106,7 @@ Looplock makes one promise:
 The engine checks the run file on every call. These rules hold for every loop:
 
 - **Valid transitions.** A run moves only along `machine`, a gate's decisions, and the human moves the loop lists, and a state's `onEnter` runs on every transition into it.
-- **Gate approvals and freezes.** A run leaves a gate forward only after a human approves it. The approval freezes the files the gate names. A changed frozen file stops the run until a human moves it into a step that rewrites the frozen artifact, which drops the freeze.
+- **Gate approvals and freezes.** A run leaves a gate forward only after a human approves it. The approval freezes the files the gate names. A changed frozen file stops the run until a human moves it into a step that rewrites the frozen artifact, or into the gate, and either move drops the freeze.
 - **Declared human moves.** A human moves with `transition` only along the moves the loop lists for the current state. Every stop lists the human's moves as data: the call that records each move, and what the call changes.
 - **Answers, all or none.** An `answer` call records all of its answers or none of them. For each answer, the call runs the loop's `onAnswer` hook, then freezes the question file.
 - **Bounded opens.** An unusable or refused result opens the same step again with the lines to fix, and a step opened `limits.opens` times since the last human move parks the run for a human.

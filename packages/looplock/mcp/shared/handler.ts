@@ -1,6 +1,8 @@
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+import { messageOf } from '../../engine/util.ts';
+
 /** The CLI beside this module, with this module's own extension, so a built copy runs `bin.js`. */
 const EXT = import.meta.url.slice(import.meta.url.lastIndexOf('.'));
 export const BIN = fileURLToPath(new URL(`../../bin${EXT}`, import.meta.url));
@@ -62,17 +64,22 @@ function check(v: unknown, p: Prop, at: string): string[] {
 function invalid({ properties = {}, required = [] }: Pick<Prop, 'properties' | 'required'>, params: Params, at = ''): string[] {
     return [
         ...required.filter((k) => params[k] == null).map((k) => `${at}${k} is required`),
-        ...Object.entries(params).flatMap(([k, v]) => (properties[k] ? check(v, properties[k], `${at}${k}`) : [`unknown argument ${at}${k}`])),
+        ...Object.entries(params).flatMap(([k, v]) => (Object.hasOwn(properties, k) ? check(v, properties[k], `${at}${k}`) : [`unknown argument ${at}${k}`])),
     ];
 }
 
 /** One CLI command in its own process, so every call reads the loop's configuration again, as the CLI does. */
 function cli(args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
-    return new Promise((done) =>
-        execFile(process.execPath, [BIN, ...args], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }, (err, stdout, stderr) =>
-            done({ code: err ? (typeof err.code === 'number' ? err.code : 1) : 0, stdout, stderr }),
-        ),
-    );
+    return new Promise((done) => {
+        try {
+            execFile(process.execPath, [BIN, ...args], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }, (err, stdout, stderr) =>
+                done({ code: err ? (typeof err.code === 'number' ? err.code : 1) : 0, stdout, stderr }),
+            );
+        } catch (e) {
+            // The process never starts for an argument it can't take, such as one with a NUL character or one past the system's limit.
+            done({ code: 1, stdout: '', stderr: messageOf(e) });
+        }
+    });
 }
 
 const error = (text: string): ToolResult => ({ content: [{ type: 'text', text }], isError: true });

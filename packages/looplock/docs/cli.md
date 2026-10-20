@@ -46,7 +46,7 @@ A stop is one JSON object, and every field of it is data. The orchestrator decid
 | `gate` | `gate`, `decision`, `to`, and `freezes` or `drops` when the call changes a freeze | A note, which a rejection requires |
 | `transition` | `to`, and `resumes` or `drops` when they apply | A note |
 
-`resumes` marks the move of a blocked run back into the step it parked from. `drops` names the gate whose freeze the move drops, with the gate's files: the move goes into a step that writes an artifact the gate froze. Every human move also resets the opens count and re-freezes the answered question files at their current bytes.
+`resumes` marks the move of a blocked run back into the step it parked from. `drops` names the gate whose freeze the move drops, with the gate's files: the move goes into that gate, or into a step that writes an artifact the gate froze. Every human move also resets the opens count and re-freezes the answered question files at their current bytes.
 
 The following stop is a blocked run of the default loop after the builder returned `blocked`:
 

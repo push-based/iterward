@@ -44,7 +44,7 @@ The server has 11 tools, one for each command except `dispatch`, `mcp`, and `--v
 
 The server has no tool for `dispatch`, because a harness's watcher reads the open dispatch through the CLI.
 
-A tool returns the command's output as text. A refusal returns an error result whose text starts with the tool name and `refused:`. A malformed call, such as a missing or unknown argument, returns one whose text starts with the tool name and `malformed call:`. An error text names each argument as the tool takes it, such as `note`, where the CLI prints the flag `--note`.
+A tool returns the command's output as text. A refusal returns an error result whose text starts with the tool name and `refused:`. A malformed call, such as a missing or unknown argument, returns one whose text starts with the tool name and `malformed call:`. An error text names each argument of the tool as the tool takes it, such as `note`, where the CLI prints the flag `--note`. Text in backticks, such as a command a guard quotes, stays as the CLI prints it. An argument the server can't pass to the CLI, such as one with a NUL character or one past the system's length limit, returns a malformed call.
 
 The server handles one request at a time. Across processes, such as the server and a watcher that runs the CLI, the run's lock lets one command change the run at a time, and a command refused by the lock comes back as a refusal. For the lock, see [One command at a time](cli.md#one-command-at-a-time).
 

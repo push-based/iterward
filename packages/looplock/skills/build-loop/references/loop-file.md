@@ -38,7 +38,7 @@ Order the top-level fields as listed. `inputs.required` is required even when em
 
 - **Step.** One agent works on one document. `writes` names the artifact, and that artifact needs a guard, because the guard returns the step's status. `outcomes` lists every status the guard can return for the step. Two steps can write the same artifact.
 - **Artifact.** A file in the run folder. A `file` with `{attempt}`, such as `build.{attempt}.md`, gets a new file on each open of a step that writes it, and the earlier files stay. An artifact that no step writes is one that a hook writes.
-- **Gate.** The run waits for a human to approve or reject. Approval records the sha256 of each artifact in `freezes`. A later change to a frozen file stops the run until a human moves it into a step that writes that artifact, which drops the freeze. A gate can't freeze a per-attempt artifact, and an artifact can be frozen by one gate only. A rejection needs a note.
+- **Gate.** The run waits for a human to approve or reject. Approval records the sha256 of each artifact in `freezes`. A later change to a frozen file stops the run until a human moves it into a step that writes that artifact, or into the gate, and either move drops the freeze. For an artifact that code writes, declare a human move into its gate. A gate can't freeze a per-attempt artifact, and an artifact can be frozen by one gate only. A rejection needs a note.
 - **Stop.** The run waits for a human with no agent to open. A stop with no entry under `human` is terminal.
 - **Park.** The run moves to `blocked` with a note. A human resumes it into the step it parked from, or takes one of that step's human moves.
 - **Questions.** An agent writes question files, such as `Q-1.md`, into the run folder. The target `{ "ask": STEP }` stops the run on the pending questions, and opens `STEP` after the human answers them. The result is refused when no question file is pending, so only an outcome that means "I wrote questions" targets `ask`.
@@ -78,6 +78,8 @@ The compiler refuses a loop file with any of these faults:
 - At `looplock compile` only: a hook whose module can't be imported, or whose export is missing or isn't a function.
 - A step, gate, or stop name with characters other than letters, digits, `_`, and `-`; a name repeated across steps, gates, and stops; or one of the reserved names `blocked`, `park`, and `start`.
 - No step; a `writes` that isn't an artifact; an artifact that a step writes with no guard; outcomes that are empty or repeat; an outcome or input name with characters other than letters, digits, `_`, and `-`.
+- A name of a step, gate, stop, artifact, input, or outcome that every JavaScript object has, such as `constructor` or `toString`.
+- An input named `config`, `run`, or `_`, because `new` takes those flags itself.
 - An artifact `file` with `/`, `\`, or `..`; a `file` of `run.json` or `out`; a `file` that matches the questions pattern; or two artifacts with one `file`.
 - A `questions.file` without exactly one `{n}`, or with a path separator.
 - A `freezes` entry that isn't an artifact, is per attempt, or is frozen by another gate.

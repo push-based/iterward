@@ -43,6 +43,8 @@ test('a call the schema refuses never reaches the CLI, and the result lists ever
         'probe malformed call: run is required; decision must be one of approved, rejected; refs[1] must be a string; inputs.k must be a string; ' +
             'entries[1].id must be a string; entries[2].id is required; unknown argument entries[2].key; entries[3] must be an object; unknown argument extra',
     );
+    const inherited = await createHandler(schema, () => assert.fail('the CLI ran'))({ run: 'r', constructor: 'x' });
+    assert.equal(text(inherited), 'probe malformed call: unknown argument constructor');
 });
 
 test('a CLI refusal (exit 2) and a malformed CLI call (exit 1) come back as error results with the reason', async () => {
@@ -52,6 +54,12 @@ test('a CLI refusal (exit 2) and a malformed CLI call (exit 1) come back as erro
     const malformed = await createHandler(schema, () => ['bogus'])({ run: runPath() });
     assert.equal(malformed.isError, true);
     assert.match(text(malformed), /^probe malformed call: Usage: looplock </);
+});
+
+test('an argument the process can\'t take, such as one with a NUL character, comes back as a malformed call', async () => {
+    const res = await createHandler(schema, (p) => ['show', '--run', p.run])({ run: 'a\u0000b' });
+    assert.equal(res.isError, true);
+    assert.match(text(res), /^probe malformed call: .*null bytes/);
 });
 
 test('the handler runs the CLI beside it with its own extension, so a built copy runs bin.js', () => {

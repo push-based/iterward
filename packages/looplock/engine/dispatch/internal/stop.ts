@@ -56,7 +56,7 @@ function moves(ctx: Ctx, runPath: string, run: Run, kind: StopKind): Move[] {
     if (kind === 'gate') {
         const g = cfg.gates[run.status];
         const files = frozenFiles(ctx, run.status).map(inRun);
-        list.push({ call: 'gate', gate: run.status, decision: 'approved', to: g.approve, ...(files.length ? { freezes: files } : {}) });
+        list.push({ call: 'gate', gate: run.status, decision: 'approved', to: g.approve, ...(files.length ? { freezes: files } : {}), ...drops(g.approve) });
         list.push({ call: 'gate', gate: run.status, decision: 'rejected', to: g.reject, ...drops(g.reject) });
     }
     for (const { drops: _, ...edge } of humanEdges(ctx, run)) list.push({ call: 'transition', ...edge, ...drops(edge.to) });

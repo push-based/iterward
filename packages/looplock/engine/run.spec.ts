@@ -18,6 +18,7 @@ import type { Run } from '../config.ts';
 import { loadLoop } from '../load-config.ts';
 import { type Ctx, context } from './context.ts';
 import { answerQuestions } from './decisions/answer-questions.ts';
+import { next } from './dispatch/next.ts';
 import { scanQuestions } from './decisions/scan-questions.ts';
 import { approve } from './gates/approve.ts';
 import { reject } from './gates/reject.ts';
@@ -27,6 +28,7 @@ import { loadRun } from './run/load-run.ts';
 import { newRun } from './run/new-run.ts';
 import { saveRun } from './run/save-run.ts';
 import { transition } from './run/transition.ts';
+import { validate } from './views/validate.ts';
 import { fileSha256, VERSION, versionLine } from './util.ts';
 
 const FIXTURE = fileURLToPath(new URL('../spec/loop/fixture.loop.json', import.meta.url));
@@ -168,6 +170,14 @@ test('answer calls onAnswer, resolves the question, and freezes its file, at any
     assert.deepEqual([built.run.status, built.run.questions[0].status], ['build', 'resolved']);
 });
 
+test('an onAnswer that throws a string refuses the call with that string', async () => {
+    const env = await started();
+    env.write('Q-1.md');
+    scanQuestions(env.ctx, env.runPath, env.run);
+    spy({ onAnswer: () => { throw 'Q-1.md § Options: no option Z'; } });
+    await rejects(answerQuestions(env.ctx, env.runPath, env.run, [{ id: 'Q-1', option: 'Z', answer: 'z' }]), /^Error: Q-1\.md § Options: no option Z\nthe answer to Q-1 was refused/);
+});
+
 test('answer checks every entry before any hook runs, and refuses the call with every problem', async () => {
     const env = await started();
     for (const f of ['Q-1.md', 'Q-2.md', 'Q-3.md']) env.write(f);
@@ -259,6 +269,14 @@ test('approval runs the guards with approve, records judged, freezes the files, 
     await rejects(approve(other.ctx, other.runPath, other.run, 'gate'), /needs status gate, not revision/);
 });
 
+test('validate finds the latest file of a per-attempt artifact whose name holds {attempt} more than once', async () => {
+    const env = await setup((l) => { l.artifacts['build-report'].file = 'build-{attempt}.v{attempt}.md'; });
+    const run = await newRun(env.ctx, env.runPath, { subject: 's' }, join(env.dir, 'loop/fixture.loop.json'));
+    for (const f of ['build-1.v1.md', 'build-2.v2.md', 'build-3.v1.md']) env.write(f);
+    assert.deepEqual(await validate(env.ctx, env.runPath, run, 'build-report'), []);
+    assert.equal(guardCalls().at(-1)![1], join(env.dir, 'runs/a/build-2.v2.md'));
+});
+
 test('a transition runs the target\'s onEnter, and its errors refuse the move', async () => {
     const env = await approved();
     spy({ onEnter: () => ['checks.1.md § lint: 2 errors'] });
@@ -308,6 +326,57 @@ test('a human transition takes only the loop\'s human moves, with a note; a move
     assert.deepEqual({ ...env.run.history.at(-1), at: 0 }, { from: 'build', to: 'revision', at: 0, note: 'the steps need another order', human: true });
     env.write('Q-1.md', 'edited\n');
     await rejects(transition(env.ctx, env.runPath, env.run, 'gate', { via: 'machine' }), /Q-1.md changed after Q-1 froze it/);
+});
+
+test('a rejection at a gate the run entered again keeps the decision and note it records, and drops the earlier approval\'s freeze', async () => {
+    const env = await setup((l) => { l.machine['verify-build.fail'] = 'gate'; });
+    const run = await newRun(env.ctx, env.runPath, { subject: 's' }, join(env.dir, 'loop/fixture.loop.json'));
+    for (const f of ['notes.md', 'plan.md', 'diff.md']) env.write(f);
+    await transition(env.ctx, env.runPath, run, 'gate', { via: 'machine' });
+    await approve(env.ctx, env.runPath, run, 'gate', 'ship it');
+    await transition(env.ctx, env.runPath, run, 'verify-build', { via: 'machine' });
+    await transition(env.ctx, env.runPath, run, 'gate', { via: 'machine' });
+    await reject(env.ctx, env.runPath, run, 'gate', 'step 3 is wrong');
+    const g = run.gates.gate;
+    assert.deepEqual([run.status, g.decision, g.note, g.history.length, run.freezes], ['revision', 'rejected', 'step 3 is wrong', 2, {}]);
+});
+
+/** A run of the loop with a second gate, Diff review, that freezes diff.md, an artifact code writes; both gates approved, at build. */
+async function twoGates(edit: (loop: any) => void = () => {}) {
+    const env = await setup((l) => {
+        l.gates.gate.freezes = ['notes', 'plan'];
+        l.gates['diff-review'] = { label: 'Diff review', freezes: ['diff'] };
+        Object.assign(l.machine, { 'gate.approve': 'diff-review', 'diff-review.approve': 'build', 'diff-review.reject': 'revision' });
+        l.human.revision = ['diff-review'];
+        edit(l);
+    });
+    const run = await newRun(env.ctx, env.runPath, { subject: 's' }, join(env.dir, 'loop/fixture.loop.json'));
+    for (const f of ['notes.md', 'plan.md', 'diff.md']) env.write(f);
+    await transition(env.ctx, env.runPath, run, 'gate', { via: 'machine' });
+    await approve(env.ctx, env.runPath, run, 'gate');
+    return { ...env, run };
+}
+
+test('a human move into a gate drops that gate\'s freeze, so a changed artifact that code writes never traps the run', async () => {
+    const env = await twoGates();
+    await approve(env.ctx, env.runPath, env.run, 'diff-review');
+    await transition(env.ctx, env.runPath, env.run, 'revision', { via: 'human', note: 'split step 2' });
+    env.write('plan.md', 'the plan, split\n');
+    env.write('diff.md', 'the diff of the split plan\n');
+    const err = await transition(env.ctx, env.runPath, env.run, 'gate', { via: 'machine' }).catch((e) => e);
+    assert.ok(err instanceof FreezeError);
+    await transition(env.ctx, env.runPath, env.run, 'blocked', { via: 'machine', note: err.message });
+    assert.deepEqual(humanEdges(env.ctx, env.run), [{ to: 'revision', resumes: true }, { to: 'diff-review', drops: 'diff-review' }]);
+    await transition(env.ctx, env.runPath, env.run, 'diff-review', { via: 'human', note: 'judge the new diff' });
+    const g = env.run.gates['diff-review'];
+    assert.deepEqual([env.run.status, Object.keys(env.run.freezes), g.decision, g.history.length], ['diff-review', [], undefined, 1]);
+});
+
+test('a gate stop lists the freeze its approval drops', async () => {
+    const env = await twoGates((l) => { l.machine['diff-review.approve'] = 'revision'; });
+    const stop: any = await next(env.ctx, env.runPath, env.run);
+    const inRun = (f: string) => join(env.dir, 'runs/a', f);
+    assert.deepEqual(stop.moves[0], { call: 'gate', gate: 'diff-review', decision: 'approved', to: 'revision', freezes: [inRun('diff.md')], drops: { gate: 'gate', files: [inRun('notes.md'), inRun('plan.md')] } });
 });
 
 test('a blocked run leaves only by a human move: the resume into the step it parked from, or that step\'s human moves', async () => {

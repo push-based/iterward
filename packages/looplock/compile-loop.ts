@@ -20,6 +20,10 @@ const FIELDS: Record<string, [string, string[]]> = {
 };
 /** Names the engine keeps: a step, gate, or stop can't take one. */
 const RESERVED = ['blocked', 'park', 'start'];
+/** Names every JavaScript object has, such as `constructor`: a lookup by one would find Object.prototype's member. */
+const INHERITED = new Set(Object.getOwnPropertyNames(Object.prototype));
+/** The flags `new` takes itself: an input takes its name as a flag of `new`. */
+const NEW_FLAGS = ['config', 'run', '_'];
 const NAME = /^[\w-]+$/;
 const HOOK = /^([^#]+)#([A-Za-z_$][\w$]*)$/;
 
@@ -38,8 +42,11 @@ export function setAt(target: object, pointer: string, value: unknown): void {
     keys.reduce((o: any, k) => o[k], target)[last] = value;
 }
 const isObj = (v: unknown): v is Record<string, any> => v != null && typeof v === 'object' && !Array.isArray(v);
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /** A question file template as a pattern: `{n}` becomes the one capture group. */
-const questionPattern = (template: string) => new RegExp(`^${template.split('{n}').map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('(\\d+)')}$`);
+const questionPattern = (template: string) => new RegExp(`^${template.split('{n}').map(escape).join('(\\d+)')}$`);
+/** An artifact's file as a pattern: each `{attempt}` matches the same attempt number, the first one captured. */
+export const attemptPattern = (file: string) => new RegExp(`^${file.split('{attempt}').map((s, i) => (i === 0 ? '' : i === 1 ? '([1-9]\\d*)' : '\\1') + escape(s)).join('')}$`);
 
 /** The configuration as JSON: each hook prints as its HookRef and the question pattern as its source. */
 export function printable(config: LoopConfig) {
@@ -65,7 +72,14 @@ export function compileLoop(file: LoopFile): LoopConfig {
         return o;
     };
     const text = (v: unknown, where: string): string => (typeof v === 'string' && v ? v : fail(where, 'must be a nonempty string'));
-    const names = (v: unknown, where: string): string[] => (Array.isArray(v) && v.every((s) => typeof s === 'string' && NAME.test(s)) ? v : fail(where, 'must be a list of names'));
+    const inherited = (n: string, where: string) => {
+        if (INHERITED.has(n)) fail(where, `${n} is a name every JavaScript object has`);
+    };
+    const names = (v: unknown, where: string): string[] => {
+        if (!Array.isArray(v) || !v.every((s) => typeof s === 'string' && NAME.test(s))) return fail(where, 'must be a list of names');
+        for (const s of v) inherited(s, where);
+        return v;
+    };
     const hooks: Record<string, HookRef> = {};
     const hook = (ref: unknown, pointer: string, where: string) => {
         if (typeof ref !== 'string' || !HOOK.test(ref)) fail(where, 'a hook is "<file>#<export>", the file relative to the loop file');
@@ -75,8 +89,8 @@ export function compileLoop(file: LoopFile): LoopConfig {
     fields(file, 'loop', '');
     text(file.name, 'name');
     const inputs = fields(file.inputs, 'inputs', 'inputs');
-    names(inputs.required, 'inputs.required');
-    if (inputs.optional !== undefined) names(inputs.optional, 'inputs.optional');
+    const flag = [...names(inputs.required, 'inputs.required'), ...(inputs.optional === undefined ? [] : names(inputs.optional, 'inputs.optional'))].find((k) => NEW_FLAGS.includes(k));
+    if (flag) fail('inputs', `${flag} is a flag that new takes itself`);
     if (file.preflight !== undefined) hook(file.preflight, '/preflight', 'preflight');
     let questions: RegExp | undefined;
     if (file.questions !== undefined) {
@@ -92,11 +106,17 @@ export function compileLoop(file: LoopFile): LoopConfig {
     const files = new Map<string, string>();
     for (const [a, spec] of Object.entries(file.artifacts)) {
         const where = `artifact ${a}`;
+        inherited(a, where);
         const f = text(fields(spec, 'artifact', where).file, `${where}, file`);
         if (/[/\\]|\.\./.test(f)) fail(`${where}, file`, `${f} is not a plain file name in the run folder`);
         if (f === 'run.json' || f === 'out') fail(`${where}, file`, `${f} is a name the engine keeps`);
         if (questions?.test(f.replaceAll('{attempt}', '1'))) fail(`${where}, file`, `${f} matches the questions pattern`);
-        if (files.has(f)) fail(`${where}, file`, `artifact ${files.get(f)} has the file ${f} already`);
+        // ponytail: compares attempts 1 to 999, so two files that name the same file only past attempt 999 pass.
+        const filled = f.includes('{attempt}') ? Array.from({ length: 999 }, (_, n) => f.replaceAll('{attempt}', String(n + 1))) : [f];
+        for (const [g, b] of files) {
+            const same = attemptPattern(g);
+            if (filled.some((x) => same.test(x))) fail(`${where}, file`, g === f ? `artifact ${b} has the file ${f} already` : `${f} and ${g}, the file of artifact ${b}, can name the same file`);
+        }
         files.set(f, a);
         artifacts[a] = { file: f };
         if (spec.guard !== undefined) hook(spec.guard, ptr('artifacts', a, 'guard'), `${where}, guard`);
@@ -110,6 +130,7 @@ export function compileLoop(file: LoopFile): LoopConfig {
         for (const [n, def] of Object.entries(v)) {
             const at = `${k} ${n}`;
             if (!NAME.test(n)) fail(at, 'a name takes letters, digits, _, and -');
+            inherited(n, at);
             if (RESERVED.includes(n)) fail(at, `${n} is a name the engine keeps`);
             if (kind.has(n)) fail(at, `${kind.get(n)} ${n} has the name already`);
             kind.set(n, k);

@@ -12,8 +12,8 @@ export type Via = 'machine' | 'gate' | 'human';
 
 /**
  * The one place the status changes. In order: a human move takes one of the state's human moves, and a machine
- * move never leaves `blocked`; a human move or a gate decision into a step that writes a frozen artifact drops
- * that gate's freeze and decision, and re-freezes the answered questions at their files' current bytes, so a
+ * move never leaves `blocked`; a human move or a gate decision into a gate, or into a step that writes a frozen
+ * artifact, drops that gate's freeze and decision, and re-freezes the answered questions at their files' current bytes, so a
  * broken question freeze never traps the run; every frozen file must be unchanged, or a FreezeError names it;
  * entering a gate needs no pending question and runs the frozen artifacts' guards; the target's `onEnter` runs.
  * Only then is the move recorded. A refusal leaves the run to the caller, which saves it only after a command succeeds.
@@ -34,8 +34,9 @@ export async function transition(ctx: Ctx, runPath: string, run: Run, to: string
         const drops = dropsOf(ctx, run, to);
         if (drops) {
             for (const [file, f] of Object.entries(run.freezes)) if (f.by === drops) delete run.freezes[file];
+            // A gate decision keeps the decision it records: only the gate's earlier freeze drops.
             const g = run.gates[drops];
-            if (g) {
+            if (g && drops !== from) {
                 delete g.decision;
                 delete g.note;
                 delete g.at;

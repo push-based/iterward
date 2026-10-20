@@ -67,6 +67,19 @@ test('result: a document stamped a few milliseconds before the dispatch opened i
     assert.deepEqual((await env.result()).closed, { id: 1, step: 'discovery', outcome: 'ok' });
 });
 
+test('result: a whole-second mtime up to 2 seconds before the dispatch opened is fresh, as HFS+ and FAT round an mtime down', async () => {
+    const env = await started();
+    await env.next();
+    env.write('notes.md');
+    const second = Math.floor(Date.parse(env.run.dispatches[0].openedAt) / 1000) * 1000 - 1000;
+    utimesSync(join(env.runDir, 'notes.md'), (second + 500) / 1000, (second + 500) / 1000);
+    assert.equal((await env.result()).closed.outcome, 'unusable', 'a mtime with milliseconds is exact');
+    env.write('notes.md');
+    utimesSync(join(env.runDir, 'notes.md'), second / 1000, second / 1000);
+    env.run.dispatches[1].openedAt = new Date(second + 1999).toISOString();
+    assert.equal((await env.result()).closed.outcome, 'ok');
+});
+
 test('result: the guard reads the status; a status outside the outcomes or none is unusable, and guard errors refuse', async () => {
     const env = await started();
     await env.next();
@@ -78,6 +91,32 @@ test('result: the guard reads the status; a status outside the outcomes or none 
     assert.deepEqual(env.run.dispatches.map((d) => d.outcome), ['unusable', 'unusable', undefined]);
     const [, path, ctx] = calls.find(([h]) => h === 'guard')!;
     assert.deepEqual([path, ctx.event, ctx.dispatch.id, ctx.dispatch.attempt, ctx.runDir], [join(env.runDir, 'notes.md'), 'result', 2, 2, env.runDir]);
+});
+
+test('a status, an artifact, or a gate named after a member every object has, such as constructor, is refused as unknown', async () => {
+    const env = await started();
+    await env.next();
+    env.write('notes.md', 'constructor');
+    await env.result();
+    assert.deepEqual([env.run.dispatches[0].outcome, env.run.dispatches[0].fixes], ['unusable', ['scout returned constructor, which is not an outcome of discovery: ok, blocked']]);
+    await assert.rejects(env.L.validate(env.runPath, env.run, 'constructor'), /^Error: validate takes notes, plan, diff, build-report, verify-report, not constructor$/);
+    await assert.rejects(env.L.approve(env.runPath, env.run, 'toString'), /^Error: gate takes gate, not toString$/);
+});
+
+test('result: a guard that returns nothing is unusable, and a target\'s onEnter that throws a string refuses with that string', async () => {
+    const env = await started();
+    await env.next();
+    spy({ guard: () => undefined });
+    env.write('notes.md');
+    await env.result();
+    assert.deepEqual([env.run.dispatches[0].outcome, env.run.dispatches[0].fixes], ['unusable', [`${join(env.runDir, 'notes.md')}: the guard returned neither a status nor errors`]]);
+
+    spy();
+    const built = await building();
+    spy({ onEnter: () => { throw 'tests failed'; } });
+    built.write('build.1.report.md');
+    await built.result();
+    assert.deepEqual([built.run.dispatches.at(-2)!.outcome, built.run.dispatches.at(-2)!.fixes], ['ok', ['tests failed']]);
 });
 
 test('result: guard errors open the step again with Fixes, the grouped lines, a new attempt, and a new per-attempt document; the fourth open parks', async () => {

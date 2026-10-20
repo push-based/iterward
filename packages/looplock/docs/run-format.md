@@ -32,7 +32,7 @@ Each dispatch writes one document: its step's artifact `file` in the run folder.
 
 ## Freezes
 
-A gate approval freezes the files of its artifacts, and an answer freezes its question file. A frozen file must stay as it was: a changed or missing frozen file parks an agent's move and refuses a human's. A human move into a step that writes a frozen artifact drops the freezes of the gate that froze it. A question's freeze stays, and every human move re-freezes it at the file's current bytes.
+A gate approval freezes the files of its artifacts, and an answer freezes its question file. A frozen file must stay as it was: a changed or missing frozen file parks an agent's move and refuses a human's. A human move into a gate drops that gate's freezes, and a human move into a step that writes a frozen artifact drops the freezes of the gate that froze it. A question's freeze stays, and every human move re-freezes it at the file's current bytes.
 
 ## Question files
 

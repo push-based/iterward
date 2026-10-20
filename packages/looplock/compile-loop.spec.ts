@@ -9,7 +9,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { appendFileSync, cpSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -112,6 +112,11 @@ test('FAIL FAST: each fault refuses the configuration when it loads, naming the 
         [(l) => { l.stops.blocked = {}; }, /^Error: loop fixture, stop blocked: blocked is a name the engine keeps$/],
         [(l) => { l.stops['re.lease'] = {}; }, /^Error: loop fixture, stop re\.lease: a name takes letters, digits, _, and -$/],
         [(l) => { l.steps = {}; }, /^Error: loop fixture, steps: declare at least one step$/],
+        // A name every JavaScript object has, such as constructor, would look up Object.prototype's member.
+        [(l) => { l.stops.toString = {}; }, /^Error: loop fixture, stop toString: toString is a name every JavaScript object has$/],
+        [(l) => { l.inputs.optional = ['constructor']; }, /^Error: loop fixture, inputs\.optional: constructor is a name every JavaScript object has$/],
+        [(l) => { l.steps.build.outcomes.push('valueOf'); }, /^Error: loop fixture, step build, outcomes: valueOf is a name every JavaScript object has$/],
+        [(l) => { l.artifacts.hasOwnProperty = { file: 'x.md' }; }, /^Error: loop fixture, artifact hasOwnProperty: hasOwnProperty is a name every JavaScript object has$/],
         // Steps.
         [(l) => { l.steps.build.writes = 'nope'; }, /^Error: loop fixture, step build, writes: nope is not an artifact$/],
         [(l) => { l.steps.build.writes = 'diff'; }, /^Error: loop fixture, step build, writes: artifact diff has no guard, and its guard returns the step's status$/],
@@ -151,11 +156,15 @@ test('FAIL FAST: each fault refuses the configuration when it loads, naming the 
         [artifact('out'), /^Error: loop fixture, artifact plan, file: out is a name the engine keeps$/],
         [artifact('Q-{attempt}.md'), /^Error: loop fixture, artifact plan, file: Q-\{attempt\}\.md matches the questions pattern$/],
         [artifact('diff.md'), /^Error: loop fixture, artifact (plan|diff), file: artifact (plan|diff) has the file diff\.md already$/],
+        [artifact('build.2.report.md'), /^Error: loop fixture, artifact build-report, file: build\.\{attempt\}\.report\.md and build\.2\.report\.md, the file of artifact plan, can name the same file$/],
+        [(l) => { l.artifacts['verify-report'].file = 'build.1{attempt}.report.md'; }, /^Error: loop fixture, artifact verify-report, file: build\.1\{attempt\}\.report\.md and build\.\{attempt\}\.report\.md, the file of artifact build-report, can name the same file$/],
         [(l) => { l.questions.file = 'Q.md'; }, /^Error: loop fixture, questions\.file: a plain file name in the run folder with one \{n\}/],
         [(l) => { l.questions = 'Q-{n}.md'; }, /^Error: loop fixture, questions: questions is an object$/],
         [(l) => { l.limits = { opens: 0 }; }, /^Error: loop fixture, limits\.opens: must be a whole number from 1$/],
         [(l) => { l.limits = { opens: 2.5 }; }, /^Error: loop fixture, limits\.opens: must be a whole number from 1$/],
         [(l) => { l.inputs.required = 'subject'; }, /^Error: loop fixture, inputs\.required: must be a list of names$/],
+        [(l) => { l.inputs.required.push('config'); }, /^Error: loop fixture, inputs: config is a flag that new takes itself$/],
+        [(l) => { l.inputs.optional = ['_']; }, /^Error: loop fixture, inputs: _ is a flag that new takes itself$/],
     ];
     for (const [edit, message] of refused) {
         const loop = parsed();
@@ -183,4 +192,29 @@ test('the configuration hash changes when a hook module or a module it imports c
     assert.notEqual(third, second, 'a hook module is hashed');
     writeFileSync(path, JSON.stringify({ ...parsed(), limits: { opens: 4 } }));
     assert.notEqual((await loadLoop(path)).sha256, third, 'the loop file is hashed');
+});
+
+test('the configuration hash follows each static import and re-export, also two on a line or one holding a comment, and no path in a string', async () => {
+    const path = copy();
+    const dir = join(path, '..');
+    for (const f of ['a.mts', 'b.mts', 'c.mts']) writeFileSync(join(dir, f), `export const ${f[0]}1 = 1;\n`);
+    mkdirSync(join(dir, 'agents'));
+    writeFileSync(join(dir, 'plan.md'), 'a plan\n');
+    appendFileSync(join(dir, 'hooks.mts'), [
+        "import {\n    a1, // the document's \"status\" line\n} from './a.mts';",
+        "import { b1 } from './b.mts'; export { c1 } from './c.mts';",
+        "export const AGENTS = './agents';",
+        "export const PLAN = './plan.md';",
+        'export const used = [a1, b1];',
+        '',
+    ].join('\n'));
+    let last = (await loadLoop(path)).sha256;
+    for (const f of ['a.mts', 'b.mts', 'c.mts']) {
+        appendFileSync(join(dir, f), '// changed\n');
+        const next = (await loadLoop(path)).sha256;
+        assert.notEqual(next, last, `${f} is hashed`);
+        last = next;
+    }
+    appendFileSync(join(dir, 'plan.md'), 'changed\n');
+    assert.equal((await loadLoop(path)).sha256, last, 'a path in an export const is no import');
 });

@@ -25,9 +25,15 @@ export function checkFreezes({ cfg }: Ctx, runPath: string, run: Run) {
     if (broken.length) throw new FreezeError(broken.join('\n'));
 }
 
-/** The gate whose freeze a human move into `to` drops: the one that froze the artifact the step `to` writes. */
+/**
+ * The gate whose freeze a human move into `to` drops: the gate `to` itself, whose files the human judges again, or
+ * the gate that froze the artifact the step `to` writes. A move into a gate is how a human releases the freeze of
+ * an artifact that code writes, which no step rewrites.
+ */
 export function dropsOf({ cfg }: Ctx, run: Run, to: string): string | undefined {
+    const active = (g: string) => Object.values(run.freezes).some((f) => f.by === g);
+    if (cfg.gates[to]) return active(to) ? to : undefined;
     const a = cfg.steps[to]?.writes;
     if (!a) return undefined;
-    return Object.entries(cfg.gates).find(([g, x]) => x.freezes.includes(a) && Object.values(run.freezes).some((f) => f.by === g))?.[0];
+    return Object.entries(cfg.gates).find(([g, x]) => x.freezes.includes(a) && active(g))?.[0];
 }

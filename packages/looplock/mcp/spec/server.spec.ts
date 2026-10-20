@@ -11,6 +11,8 @@ import { createInterface } from 'node:readline';
 import { after, test } from 'node:test';
 
 import { asArguments } from '../tools.ts';
+import { transitionTool } from '../tools/run/transition.tool.ts';
+import { validateTool } from '../tools/run/validate.tool.ts';
 import { BIN, startedRun } from './fixtures.ts';
 
 /** A server process, started as `looplock mcp`, and `call` for a request's reply. */
@@ -45,6 +47,7 @@ test('the handshake names the server and points at build-loop, and tools/list li
     assert.deepEqual(tools.map((t: any) => t.name), commands.filter((c) => c !== 'dispatch'));
     assert.deepEqual(tools.filter((t: any) => t.annotations.readOnlyHint).map((t: any) => t.name), ['build-loop', 'compile', 'show']);
     assert.equal((await s.call('bogus')).error.code, -32601);
+    assert.equal((await s.call('constructor', { a: 1 })).error.code, -32601, 'a member every object has is no method');
 });
 
 test('tools/call returns the tool result, and refuses a tool that does not exist', async () => {
@@ -54,9 +57,11 @@ test('tools/call returns the tool result, and refuses a tool that does not exist
     assert.equal((await s.call('tools/call', { name: 'nope', arguments: {} })).error.code, -32602);
 });
 
-test('a refusal names each tool argument as the tool takes it, not as a CLI flag, and leaves a custom property whole', () => {
-    assert.equal(asArguments('a human transition needs --note; --answers takes a JSON array; --to'), 'a human transition needs `note`; `answers` takes a JSON array; `to`');
-    assert.equal(asArguments('--ds-pr-x-note and --note-x and x--note stay'), '--ds-pr-x-note and --note-x and x--note stay');
+test('a refusal names each argument of the tool as the tool takes it, not as a CLI flag, and leaves a custom property, another tool\'s flag, and text in backticks whole', () => {
+    assert.equal(asArguments('a human transition needs --note; --to', transitionTool), 'a human transition needs `note`; `to`');
+    assert.equal(asArguments('--ds-pr-x-note and --note-x and x--note stay', transitionTool), '--ds-pr-x-note and --note-x and x--note stay');
+    assert.equal(asArguments('--answers takes a JSON array', transitionTool), '--answers takes a JSON array');
+    assert.equal(asArguments('notes.md § Commands: replace `vitest --run` with `vitest run`; pass --run', validateTool), 'notes.md § Commands: replace `vitest --run` with `vitest run`; pass `run`');
 });
 
 test('a tool call that the CLI refuses comes back with the tool arguments named', async () => {

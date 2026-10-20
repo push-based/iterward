@@ -59,6 +59,7 @@ test('usage errors exit 1, refusals exit 2, --version prints the version package
     const config = join(makeLoop(), 'loop.json');
     assert.equal(cli('--version').stdout, `${JSON.parse(readFileSync(new URL('package.json', import.meta.url), 'utf8')).version}\n`);
     assert.equal(cli('bogus').status, 1);
+    assert.equal(cli('toString').status, 1, 'a member every object has is no command');
     assert.equal(cli('gate', '--run', 'x').status, 1, 'gate needs a gate name');
     assert.equal(cli('new', '--config', config).status, 1, 'new needs --run');
     assert.equal(cli('new', '--config', config, '--run', runPath()).status, 1, 'new needs the inputs the loop requires');
@@ -82,6 +83,14 @@ test('new runs the preflight: an error refuses the run, grouped, and writes noth
     assert.deepEqual(json(cli('new', '--config', config, '--run', run, '--subject', 'c')), { ok: true, status: 'discovery', warnings: ['no linter'] });
     assert.match(cli('new', '--config', config, '--run', run, '--subject', 'c').stderr, /a run exists/);
     assert.match(cli('new', '--config', config, '--run', join(dirname(run), 'other.json'), '--subject', 'c').stderr, /holds files from an earlier run/);
+});
+
+test('a hook that throws a string is a refusal with that string, exit 2', () => {
+    const dir = makeLoop();
+    const hooks = join(dir, 'hooks.mjs');
+    writeFileSync(hooks, readFileSync(hooks, 'utf8').replace('export const preflight = ', "export const preflight = () => { throw 'the repository has no lockfile'; };\nconst unused = "));
+    const res = cli('new', '--config', join(dir, 'loop.json'), '--run', runPath(), '--subject', 's');
+    assert.deepEqual([res.status, res.stderr], [2, 'other:\n  - the repository has no lockfile\n']);
 });
 
 test('next and result drive the run and save it; show prints its state; compile prints the loop with each outcome resolved', () => {
@@ -109,6 +118,11 @@ test('validate prints ok, or the grouped lines with exit 2; past 20,000 characte
     const file = /^… 361 more lines in (.+)$/.exec(long[40])![1];
     assert.equal(file, join(dirname(run), 'out', 'validate.1.txt'));
     assert.equal(readFileSync(file, 'utf8').split('\n').length, 401, 'the file holds the whole list');
+    rmSync(join(dirname(run), 'out'), { recursive: true });
+    writeFileSync(join(dirname(run), 'out'), 'a file where the spill folder goes');
+    const unspilled = cli('validate', 'plan', '--run', run);
+    assert.deepEqual([unspilled.status, unspilled.stderr.trimEnd().split('\n').length], [2, 401], 'a run folder that can\'t take the spill file leaves the whole text on stderr');
+    rmSync(join(dirname(run), 'out'));
     doc(run, 'build.2.report.md');
     writeFileSync(join(dirname(run), 'build.10.report.md'), '---\nid: build.10.report.md\n---\n');
     writeFileSync(join(dirname(run), 'errors.txt'), '');
