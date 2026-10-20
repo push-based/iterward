@@ -1,5 +1,5 @@
 {
-  "name": "@push-based/looplock-source",
+  "name": "@push-based/iterward-source",
   "private": true,
   "type": "module",
   "workspaces": [
