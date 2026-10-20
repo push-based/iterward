@@ -36,5 +36,5 @@ jobs:
       - name: Set up dependencies
         uses: ./.github/actions/setup
 
-      - name: Build and test the affected projects
-        run: npx nx affected -t build test
+      - name: Lint, type-check, build, and test the affected projects
+        run: npx nx affected -t lint typecheck build test

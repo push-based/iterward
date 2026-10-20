@@ -12,6 +12,6 @@
   "repository": { "type": "git", "url": "git+https://github.com/push-based/iterward.git", "directory": "packages/iterward" },
   "publishConfig": { "access": "public" },
   "nx": { "name": "iterward" },
-  "scripts": { "build": "rm -rf dist && tsc -p tsconfig.build.json && chmod +x dist/bin.js", "test": "node --test '**/*.spec.ts' '**/*.spec.mts'" },
-  "devDependencies": { "typescript": "5.9.3", "@types/node": "^22", "@modelcontextprotocol/sdk": "1.32.1" }
+  "scripts": { "build": "rm -rf dist && tsc -p tsconfig.build.json && chmod +x dist/bin.js", "test": "node --test '**/*.spec.ts' '**/*.spec.mts'", "lint": "eslint .", "typecheck": "tsc -p tsconfig.json" },
+  "devDependencies": { "typescript": "5.9.3", "@types/node": "^22", "@modelcontextprotocol/sdk": "1.32.1", "eslint": "10.13.0", "@eslint/js": "10.0.1", "typescript-eslint": "8.72.0" }
 }

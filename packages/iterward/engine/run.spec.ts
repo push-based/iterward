@@ -8,7 +8,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, test } from 'node:test';
@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 
 import type { Run } from '../config.ts';
 import { loadLoop } from '../load-config.ts';
-import { type Ctx, context } from './context.ts';
+import { context } from './context.ts';
 import { answerQuestions } from './decisions/answer-questions.ts';
 import { next } from './dispatch/next.ts';
 import { scanQuestions } from './decisions/scan-questions.ts';

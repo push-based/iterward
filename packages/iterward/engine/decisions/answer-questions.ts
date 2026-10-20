@@ -32,7 +32,7 @@ export async function answerQuestions(ctx: Ctx, runPath: string, run: Run, answe
             freeze(runPath, run, q.file, id);
         } catch (e) {
             Object.assign(run, saved);
-            throw new Error(`${messageOf(e)}\nthe answer to ${id} was refused, so none of this call's answers was recorded`);
+            throw new Error(`${messageOf(e)}\nthe answer to ${id} was refused, so none of this call's answers was recorded`, { cause: e });
         }
         resolved.push(Object.assign(q, { status: 'resolved' as const, chosen: option, answer, resolvedAt: now() }));
     }

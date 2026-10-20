@@ -12,7 +12,7 @@ test('new starts a run with the loop inputs and returns the preflight warnings, 
     assert.deepEqual(json(await newTool.handler({ config, run, inputs: { subject: 'the progress bar' } })), { ok: true, status: 'discovery', warnings: ['no linter'] });
     const refused = await newTool.handler({ config, run, inputs: { subject: 'the progress bar' } });
     assert.equal(refused.isError, true);
-    assert.match(text(refused), /^new refused: other:\n  - a run exists at /);
+    assert.match(text(refused), /^new refused: other:\n {2}- a run exists at /);
 });
 
 test('an input named _ or $ never replaces the command or its name, so new can never run another command', async () => {
