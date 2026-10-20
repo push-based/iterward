@@ -18,6 +18,8 @@ jobs:
     name: Publish packages
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # The npm trusted publisher names this environment, so a run outside it can't publish.
+    environment: release
     steps:
       - name: Clone the repository
         uses: actions/checkout@v7

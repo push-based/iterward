@@ -12,12 +12,14 @@ jobs:
     name: Version and release
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # The release environment holds the PushBased Bot App's ID and private key.
+    environment: release
     steps:
-      - name: Authenticate as the release bot GitHub App
+      - name: Authenticate as the PushBased Bot GitHub App
         uses: actions/create-github-app-token@v3
         id: app-token
         with:
-          client-id: ${{ vars.GH_APP_CLIENT_ID }}
+          app-id: ${{ vars.GH_APP_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
 
       - name: Fetch the GitHub App's user ID
