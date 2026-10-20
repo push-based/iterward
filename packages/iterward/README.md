@@ -1,8 +1,43 @@
-# Iterward
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/push-based/iterward/main/assets/iterward-logo-dark.png">
+    <img src="https://raw.githubusercontent.com/push-based/iterward/main/assets/iterward-logo.png" alt="Iterward" width="320">
+  </picture>
+</h1>
 
 LLMs do the work. Iterward decides what happens next.
 
 Iterward is a deterministic control plane for agentic engineering workflows. It moves routing, retries, approvals, failures, and stop conditions out of prompts and into a loop file and code that you can test.
+
+## Install
+
+Iterward needs Node.js 22.18 or later and has no npm dependencies. Install it as a development dependency of the repository your loop works on:
+
+```bash
+npm install --save-dev @push-based/iterward
+```
+
+The package gives you the `iterward` command, which you run as `npx iterward`, the engine, which a test imports from `@push-based/iterward`, the MCP server, the default loop, and the build-loop skill. To work on Iterward itself, see the [repository README](https://github.com/push-based/iterward#readme).
+
+To try Iterward without an install, run each command as `npx @push-based/iterward`, such as `npx @push-based/iterward init`. An install pins the version your runs use, and lets a test import the engine.
+
+## Quick start
+
+Node.js doesn't strip types from files under `node_modules`, so it can't load the default loop's `hooks.mts` where npm installs it. `init` copies the default loop into `loops/default/` in your repository. From the repository root, copy the loop, and start a run:
+
+```bash
+npx iterward init
+npx iterward new --config loops/default/default.loop.json --run runs/example/run.json --subject 'the settings page'
+npx iterward next --run runs/example/run.json
+```
+
+`next` prints the first dispatch, the planner's standard message:
+
+```json
+{"do":"dispatch","id":1,"agent":"planner","message":"Step: plan\nRun: runs/example/run.json\nDocument: runs/example/plan.md\nInputs:\n  subject: the settings page\nNote: none\nFixes: none"}
+```
+
+To play each agent by hand through the gate, the build, and the verification, continue with [Run the default loop by hand](docs/tutorial.md). To start a loop of your own, change the copy, as [The default loop](examples/default/README.md) describes.
 
 ## The problem
 
@@ -113,36 +148,6 @@ The engine checks the run file on every call. These rules hold for every loop:
 - **One command at a time.** A command that changes a run holds the run's lock, so a second one is refused before any hook runs. The engine replaces `run.json` whole.
 
 For every rule and the terms it uses, see [Protocol rules](docs/protocol.md).
-
-## Install
-
-Iterward needs Node.js 22.18 or later and has no npm dependencies. Install it as a development dependency of the repository your loop works on:
-
-```bash
-npm install --save-dev @push-based/iterward
-```
-
-The package gives you the `iterward` command, which you run as `npx iterward`, the engine, which a test imports from `@push-based/iterward`, the MCP server, the default loop, and the build-loop skill. To work on Iterward itself, see the [repository README](https://github.com/push-based/iterward#readme).
-
-To try Iterward without an install, run each command as `npx @push-based/iterward`, such as `npx @push-based/iterward init`. An install pins the version your runs use, and lets a test import the engine.
-
-## Quick start
-
-Node.js doesn't strip types from files under `node_modules`, so it can't load the default loop's `hooks.mts` where npm installs it. `init` copies the default loop into `loops/default/` in your repository. From the repository root, copy the loop, and start a run:
-
-```bash
-npx iterward init
-npx iterward new --config loops/default/default.loop.json --run runs/example/run.json --subject 'the settings page'
-npx iterward next --run runs/example/run.json
-```
-
-`next` prints the first dispatch, the planner's standard message:
-
-```json
-{"do":"dispatch","id":1,"agent":"planner","message":"Step: plan\nRun: runs/example/run.json\nDocument: runs/example/plan.md\nInputs:\n  subject: the settings page\nNote: none\nFixes: none"}
-```
-
-To play each agent by hand through the gate, the build, and the verification, continue with [Run the default loop by hand](docs/tutorial.md). To start a loop of your own, change the copy, as [The default loop](examples/default/README.md) describes.
 
 ## Design a loop with an agent
 
