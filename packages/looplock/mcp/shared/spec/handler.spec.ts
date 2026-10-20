@@ -56,6 +56,12 @@ test('a CLI refusal (exit 2) and a malformed CLI call (exit 1) come back as erro
     assert.match(text(malformed), /^probe malformed call: Usage: looplock </);
 });
 
+test('an argument the process can\'t take, such as one with a NUL character, comes back as a malformed call', async () => {
+    const res = await createHandler(schema, (p) => ['show', '--run', p.run])({ run: 'a\u0000b' });
+    assert.equal(res.isError, true);
+    assert.match(text(res), /^probe malformed call: .*null bytes/);
+});
+
 test('the handler runs the CLI beside it with its own extension, so a built copy runs bin.js', () => {
     assert.equal(BIN, fileURLToPath(new URL('../../../bin.ts', import.meta.url)));
     assert.equal(extname(BIN), extname(fileURLToPath(new URL('../handler.ts', import.meta.url))));

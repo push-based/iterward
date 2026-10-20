@@ -14,12 +14,13 @@ import { showTool } from './tools/views/show.tool.ts';
 /** One tool per CLI command but `dispatch`, `mcp`, and `--version`, in the order of the CLI's usage line. */
 export const TOOLS: Tool[] = [initTool, buildLoopTool, compileTool, newTool, nextTool, resultTool, showTool, validateTool, answerTool, gateTool, transitionTool];
 
-/** The CLI flag of each argument a tool takes. */
-const FLAGS = [...new Set(TOOLS.flatMap((t) => Object.keys(t.schema.inputSchema.properties)))].map((k) => [k, `--${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`]);
-
 /**
- * A refusal as a tool caller reads it: the engine words a refusal for the CLI, so each flag of a tool
- * argument, such as `--note`, becomes the argument's name. A longer name, such as a custom property
- * `--note-x`, stays.
+ * A refusal as a tool caller reads it: the engine words a refusal for the CLI, so each flag of one of the tool's
+ * arguments, such as `--note`, becomes the argument's name. A longer name, such as a custom property `--note-x`,
+ * stays, and so does text in backticks, such as a command a guard quotes.
  */
-export const asArguments = (text: string) => FLAGS.reduce((t, [k, flag]) => t.replace(new RegExp(`(?<![\\w-])${flag}(?![\\w-])`, 'g'), `\`${k}\``), text);
+export function asArguments(text: string, tool: Tool): string {
+    const flags = Object.keys(tool.schema.inputSchema.properties).map((k) => [k, `--${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`]);
+    const named = (part: string) => flags.reduce((t, [k, flag]) => t.replace(new RegExp(`(?<![\\w-])${flag}(?![\\w-])`, 'g'), `\`${k}\``), part);
+    return text.split(/(`[^`\n]*`)/).map((part, i) => (i % 2 ? part : named(part))).join('');
+}

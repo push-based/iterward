@@ -34,7 +34,7 @@ const METHODS: Record<string, (params: any) => unknown> = {
     'tools/call': (p) => {
         const tool = TOOLS.find((t) => t.schema.name === p?.name);
         if (!tool) throw rpcError(-32602, `no tool ${p?.name}; the tools are ${TOOLS.map((t) => t.schema.name).join(', ')}`);
-        return tool.handler(p.arguments ?? {}).then((res) => (res.isError ? { ...res, content: res.content.map((c) => ({ ...c, text: asArguments(c.text) })) } : res));
+        return tool.handler(p.arguments ?? {}).then((res) => (res.isError ? { ...res, content: res.content.map((c) => ({ ...c, text: asArguments(c.text, tool) })) } : res));
     },
 };
 
@@ -52,7 +52,9 @@ async function reply(line: string): Promise<object | undefined> {
     try {
         return { jsonrpc: '2.0', id: msg.id, result: await fn(msg.params) };
     } catch (e) {
-        return { jsonrpc: '2.0', id: msg.id, error: { code: (e as any).code ?? -32603, message: (e as Error).message } };
+        // A JSON-RPC error code is an integer, and a system error's code, such as E2BIG, is not.
+        const code = (e as any).code;
+        return { jsonrpc: '2.0', id: msg.id, error: { code: Number.isInteger(code) ? code : -32603, message: (e as Error).message } };
     }
 }
 
