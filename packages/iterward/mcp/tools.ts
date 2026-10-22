@@ -1,5 +1,6 @@
 import type { Tool } from './shared/handler.ts';
 import { answerTool } from './tools/decisions/answer.tool.ts';
+import { dispatchTool } from './tools/dispatch/dispatch.tool.ts';
 import { nextTool } from './tools/dispatch/next.tool.ts';
 import { resultTool } from './tools/dispatch/result.tool.ts';
 import { gateTool } from './tools/gates/gate.tool.ts';
@@ -11,8 +12,8 @@ import { transitionTool } from './tools/run/transition.tool.ts';
 import { validateTool } from './tools/run/validate.tool.ts';
 import { showTool } from './tools/views/show.tool.ts';
 
-/** One tool per CLI command but `dispatch`, `mcp`, and `--version`, in the order of the CLI's usage line. */
-export const TOOLS: Tool[] = [initTool, buildLoopTool, compileTool, newTool, nextTool, resultTool, showTool, validateTool, answerTool, gateTool, transitionTool];
+/** One tool per CLI command but `mcp` and `--version`, in the order of the CLI's usage line. */
+export const TOOLS: Tool[] = [initTool, buildLoopTool, compileTool, newTool, nextTool, resultTool, showTool, dispatchTool, validateTool, answerTool, gateTool, transitionTool];
 
 /**
  * A refusal as a tool caller reads it: the engine words a refusal for the CLI, so each flag of one of the tool's

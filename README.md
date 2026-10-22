@@ -32,12 +32,12 @@ The MCP server exposes the CLI's commands as tools. To register it with Claude C
 ```json
 {
     "mcpServers": {
-        "iterward": { "command": "npx", "args": ["-y", "@push-based/iterward@VERSION", "mcp"] }
+        "iterward": { "command": "npx", "args": ["-y", "@push-based/iterward@latest", "mcp"] }
     }
 }
 ```
 
-Replace `VERSION` with the Iterward version your runs use, such as `0.4.0`. The server's `build-loop` tool gives an agent the build-loop skill, which interviews you about a workflow and writes a loop file that compiles.
+To keep a run on the version that started it, see [Register the server](packages/iterward/docs/mcp.md#register-the-server). The server's `build-loop` tool gives an agent the build-loop skill, which interviews you about a workflow and writes a loop file that compiles.
 
 ## Documentation
 
