@@ -34,7 +34,7 @@ function server() {
     return { call };
 }
 
-test('the handshake names the server and points at build-loop, and tools/list lists one tool per CLI command but dispatch', async () => {
+test('the handshake names the server and points at build-loop, and tools/list lists one tool per CLI command', async () => {
     const s = server();
     const init = await s.call('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'spec', version: '0' } });
     assert.deepEqual([init.result.protocolVersion, init.result.serverInfo.name], ['2025-06-18', 'iterward']);
@@ -42,10 +42,9 @@ test('the handshake names the server and points at build-loop, and tools/list li
     assert.equal((await s.call('initialize', { protocolVersion: '1999-01-01' })).result.protocolVersion, '2025-11-25');
     const commands = spawnSync(process.execPath, [BIN], { encoding: 'utf8' }).stderr.match(/<(.+)>/)![1].split('|').filter((c) => c !== 'mcp');
     const { tools } = (await s.call('tools/list')).result;
-    assert.deepEqual(tools.map((t: any) => t.name), ['init', 'build-loop', 'compile', 'new', 'next', 'result', 'show', 'validate', 'answer', 'gate', 'transition']);
-    // `dispatch` serves a harness's watcher through the CLI; no agent needs it.
-    assert.deepEqual(tools.map((t: any) => t.name), commands.filter((c) => c !== 'dispatch'));
-    assert.deepEqual(tools.filter((t: any) => t.annotations.readOnlyHint).map((t: any) => t.name), ['build-loop', 'compile', 'show']);
+    assert.deepEqual(tools.map((t: any) => t.name), ['init', 'build-loop', 'compile', 'new', 'next', 'result', 'show', 'dispatch', 'validate', 'answer', 'gate', 'transition']);
+    assert.deepEqual(tools.map((t: any) => t.name), commands);
+    assert.deepEqual(tools.filter((t: any) => t.annotations.readOnlyHint).map((t: any) => t.name), ['build-loop', 'compile', 'show', 'dispatch']);
     assert.equal((await s.call('bogus')).error.code, -32601);
     assert.equal((await s.call('constructor', { a: 1 })).error.code, -32601, 'a member every object has is no method');
 });

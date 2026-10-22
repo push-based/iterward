@@ -18,7 +18,7 @@ const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 
 /** What an agent reads before its first call: where loop design starts, and which calls record a human's move. */
 const INSTRUCTIONS =
-    "Iterward keeps a run of a loop file on the transitions the loop declares. To design or change a loop file, call `build-loop` first, and follow the instructions it returns. To drive a run, call `next`, send its message to the agent it names, and call `result` after the agent writes its document. `answer`, `gate`, and `transition` record a human's move: call them only with the human's own words.";
+    "Iterward keeps a run of a loop file on the transitions the loop declares. To design or change a loop file, call `build-loop` first, and follow the instructions it returns. To drive a run, call `next`, send its message to the agent it names, and call `result` after the agent writes its document. An agent that got only a run path calls `dispatch` to read its message. `answer`, `gate`, and `transition` record a human's move: call them only with the human's own words.";
 
 const rpcError = (code: number, message: string) => Object.assign(new Error(message), { code });
 
