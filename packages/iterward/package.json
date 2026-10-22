@@ -1,6 +1,6 @@
 {
   "name": "@push-based/iterward",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "A deterministic control plane for agentic engineering workflows.",
   "keywords": ["closed-loop", "closed-loop-agents", "ai-agents", "agentic-workflows", "llm", "orchestration", "state-machine", "mcp", "claude-code"],
   "license": "MIT",
