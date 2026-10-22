@@ -11,12 +11,12 @@ To register the server with Claude Code, add it to the `.mcp.json` file in the r
 ```json
 {
     "mcpServers": {
-        "iterward": { "command": "npx", "args": ["-y", "@push-based/iterward@VERSION", "mcp"] }
+        "iterward": { "command": "npx", "args": ["-y", "@push-based/iterward@latest", "mcp"] }
     }
 }
 ```
 
-Replace `VERSION` with the Iterward version your runs use, such as `0.4.0`. An engine of another minor version refuses a run, so a pinned version keeps every session on the engine that started the run. When the repository installs that version, npx runs the installed copy. In a clone of the Iterward repository, run `node packages/iterward/bin.ts mcp`, which Node.js runs without a build step.
+An engine of another minor version refuses a run, so after a minor release, `@latest` refuses a run that an earlier minor version started. The refusal names the command that continues the run, such as `npx @push-based/iterward@0.4`. To keep every session on the engine that started the run, replace `latest` with that version, such as `0.4.2`. When the repository installs that version, npx runs the installed copy. In a clone of the Iterward repository, run `node packages/iterward/bin.ts mcp`, which Node.js runs without a build step.
 
 The first start through npx downloads the package. If the client stops waiting before the download ends, restart the server after the download, or install the package.
 
