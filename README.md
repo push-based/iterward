@@ -41,7 +41,7 @@ To keep a run on the version that started it, see [Pin the engine version](packa
 
 ## Documentation
 
-The following pages cover the rest:
+The [Iterward documentation site](https://push-based.github.io/iterward/) holds every page. The following pages cover the rest in this repository:
 
 - [Iterward](packages/iterward/README.md): the problem, how Iterward works, a loop in code, and what the engine enforces.
 - [Run the default loop by hand](packages/iterward/docs/tutorial.md): play every agent and take a run to `done`.
