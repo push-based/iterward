@@ -143,7 +143,7 @@ The build-loop skill turns a workflow you describe into a loop file and its hook
 
 ## Documentation
 
-The following pages cover the rest, as a tutorial, how-to guides, and reference:
+The [Iterward documentation site](https://push-based.github.io/iterward/) holds every page. The following pages cover the rest, as a tutorial, how-to guides, and reference:
 
 - [Run the default loop by hand](docs/tutorial.md): play every agent and take a run to `done`.
 - [Create a loop of your own](docs/create-a-loop.md): change a copy of the default loop, or design a loop with an agent.
