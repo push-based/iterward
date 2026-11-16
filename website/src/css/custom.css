@@ -1,0 +1,185 @@
+/*
+ * The PushBased design system, mapped onto the variables of Infima, the Docusaurus CSS framework.
+ * The --color-*, --radius-*, and --shadow-* tokens keep the design system's names and values.
+ * The design system has one light theme, so the dark theme here is derived from the same scales.
+ */
+
+:root {
+    --color-primary-50: #f5f3ff;
+    --color-primary-100: #ece9fe;
+    --color-primary-200: #ddd6fe;
+    --color-primary-300: #c3b5fd;
+    --color-primary-400: #a48afb;
+    --color-primary-500: #875bf7;
+    --color-primary-600: #7839ee;
+    --color-primary-700: #6927da;
+    --color-primary-800: #5720b7;
+    --color-primary-900: #491c96;
+    --color-primary-950: #2e125e;
+    --color-neutral-25: #fcfcfd;
+    --color-neutral-50: #f8fafc;
+    --color-neutral-100: #eef2f6;
+    --color-neutral-200: #e3e8ef;
+    --color-neutral-300: #cdd5df;
+    --color-neutral-400: #9aa4b2;
+    --color-neutral-500: #697586;
+    --color-neutral-600: #4b5565;
+    --color-neutral-700: #364152;
+    --color-neutral-800: #202939;
+    --color-neutral-900: #121926;
+    --color-neutral-950: #0d121c;
+    --radius-md: 0.375rem;
+    --radius-lg: 0.5rem;
+    --shadow-sm: 0 1px 2px 0 rgba(16, 24, 40, 0.05);
+    --shadow-md: 0 20px 24px -4px rgba(16, 24, 40, 0.08), 0 8px 8px -4px rgba(16, 24, 40, 0.03);
+
+    /* Roles. The dark theme reassigns these, and the rules after it read only the roles. */
+    --pb-surface: #ffffff;
+    --pb-surface-subtle: var(--color-neutral-50);
+    --pb-border: var(--color-neutral-100);
+    --pb-border-strong: var(--color-neutral-200);
+    --pb-text: var(--color-neutral-700);
+    --pb-text-muted: var(--color-neutral-500);
+    --pb-text-heading: var(--color-neutral-900);
+    --pb-active-surface: var(--color-primary-50);
+    --pb-active-text: var(--color-primary-700);
+
+    /* Infima's gray scale feeds every border and muted surface in both themes. */
+    --ifm-color-gray-100: var(--color-neutral-50);
+    --ifm-color-gray-200: var(--color-neutral-100);
+    --ifm-color-gray-300: var(--color-neutral-200);
+    --ifm-color-gray-400: var(--color-neutral-300);
+    --ifm-color-gray-500: var(--color-neutral-400);
+    --ifm-color-gray-600: var(--color-neutral-500);
+    --ifm-color-gray-700: var(--color-neutral-600);
+    --ifm-color-gray-800: var(--color-neutral-700);
+    --ifm-color-gray-900: var(--color-neutral-800);
+
+    /* color-primary-600, not 500: white and violet-500 measure 4.31:1, under the 4.5:1 that text needs. */
+    --ifm-color-primary: var(--color-primary-600);
+    --ifm-color-primary-dark: var(--color-primary-700);
+    --ifm-color-primary-darker: var(--color-primary-800);
+    --ifm-color-primary-darkest: var(--color-primary-900);
+    --ifm-color-primary-light: var(--color-primary-500);
+    --ifm-color-primary-lighter: var(--color-primary-400);
+    --ifm-color-primary-lightest: var(--color-primary-300);
+
+    --ifm-heading-color: var(--pb-text-heading);
+
+    --ifm-font-family-base: Geist, system-ui, -apple-system, sans-serif;
+    --ifm-font-family-monospace: 'Geist Mono', ui-monospace, monospace;
+    --ifm-line-height-base: 1.5;
+    --ifm-heading-font-weight: 600;
+    --ifm-h1-font-size: 2.25rem;
+    --ifm-h2-font-size: 1.5rem;
+    --ifm-h3-font-size: 1.25rem;
+    --ifm-h4-font-size: 1rem;
+    --ifm-code-font-size: 0.875em;
+
+    --ifm-global-radius: var(--radius-lg);
+    --ifm-code-border-radius: var(--radius-md);
+    --ifm-pre-border-radius: var(--radius-lg);
+    --ifm-global-shadow-lw: var(--shadow-sm);
+    --ifm-global-shadow-md: var(--shadow-md);
+
+    --ifm-navbar-shadow: none;
+    --ifm-table-border-color: var(--pb-border-strong);
+    --ifm-table-head-background: var(--pb-surface-subtle);
+    --ifm-table-stripe-background: transparent;
+    --ifm-menu-color: var(--color-neutral-600);
+    --ifm-menu-color-active: var(--pb-active-text);
+    --ifm-menu-color-background-active: var(--pb-active-surface);
+    --ifm-menu-color-background-hover: var(--pb-surface-subtle);
+    --ifm-pagination-nav-border-radius: var(--radius-lg);
+}
+
+html[data-theme='dark'] {
+    --pb-surface: var(--color-neutral-950);
+    --pb-surface-subtle: var(--color-neutral-900);
+    --pb-border: var(--color-neutral-800);
+    --pb-border-strong: var(--color-neutral-700);
+    --pb-text: var(--color-neutral-300);
+    --pb-text-muted: var(--color-neutral-400);
+    --pb-text-heading: var(--color-neutral-25);
+    --pb-active-surface: var(--color-primary-950);
+    --pb-active-text: var(--color-primary-300);
+
+    --ifm-color-primary: var(--color-primary-400);
+    --ifm-color-primary-dark: var(--color-primary-500);
+    --ifm-color-primary-darker: var(--color-primary-600);
+    --ifm-color-primary-darkest: var(--color-primary-700);
+    --ifm-color-primary-light: var(--color-primary-300);
+    --ifm-color-primary-lighter: var(--color-primary-200);
+    --ifm-color-primary-lightest: var(--color-primary-100);
+    --ifm-menu-color: var(--color-neutral-300);
+}
+
+/* Infima sets these six in its own dark-theme block, so the same selector repeats them here. */
+:root,
+html[data-theme='dark'] {
+    --ifm-background-color: var(--pb-surface);
+    --ifm-background-surface-color: var(--pb-surface);
+    --ifm-color-content: var(--pb-text);
+    --ifm-color-content-secondary: var(--pb-text-muted);
+    --ifm-code-background: var(--pb-surface-subtle);
+    --ifm-toc-border-color: var(--pb-border);
+}
+
+/* Depth stays light: a 1px border separates the navigation bar and the cards, not a shadow. */
+.navbar {
+    border-bottom: 1px solid var(--pb-border);
+}
+
+.navbar__link {
+    font-weight: 500;
+}
+
+h3,
+h4 {
+    font-weight: 500;
+}
+
+.menu__link {
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* Code blocks follow the card. The highlight theme sets its background inline, hence !important. */
+.theme-code-block,
+.theme-code-block pre {
+    background-color: var(--pb-surface-subtle) !important;
+}
+
+.theme-code-block {
+    border: 1px solid var(--pb-border);
+    box-shadow: none;
+}
+
+.markdown code {
+    border-color: var(--pb-border-strong);
+}
+
+/* The design system's eyebrow: Geist Mono, uppercase, above a title. */
+.breadcrumbs__link,
+.pagination-nav__sublabel {
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+/* The design system's card: a subtle fill, a 1px border, and no shadow. */
+.pagination-nav__link {
+    background: var(--pb-surface-subtle);
+    border-color: var(--pb-border);
+}
+
+.pagination-nav__link:hover {
+    border-color: var(--ifm-color-primary);
+}
+
+:focus-visible {
+    outline: 2px solid var(--ifm-color-primary);
+    outline-offset: 2px;
+}

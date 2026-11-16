@@ -55,12 +55,14 @@ The following pages cover the rest:
 
 ## Develop
 
-The repository is an Nx workspace with one package, `packages/iterward`. To build and test it, install the workspace, and run the targets through Nx:
+The repository is an Nx workspace with two projects: the package in `packages/iterward`, and the documentation site in `website`, which renders the package's Markdown files with Docusaurus. To build and test both, install the workspace, and run the targets through Nx:
 
 ```bash
 npm install
 npx nx run-many -t build test
 ```
+
+To preview the documentation site at `http://localhost:3000/iterward/`, run `npm run start -w website`.
 
 To run only the engine's tests, run `npm test` in the `packages/iterward` folder. Two of those tests guard the package itself:
 
