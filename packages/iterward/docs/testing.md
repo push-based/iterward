@@ -1,8 +1,6 @@
-# Testing
+# Test a loop
 
 A loop's protocol is a loop file and hooks, so you test it with `node:test`, the Node.js test runner.
-
-## Test a loop
 
 `loop(await loadLoop(path))` returns the same `next` and `result` operations that the CLI calls. The package exports `loop`, `loadLoop`, `printable`, `FreezeError`, `VERSION`, and the types of `config.ts`, and nothing else. Your test plays each agent by writing its document, a Markdown file whose frontmatter carries the status, and never writes a result file of its own.
 
@@ -39,15 +37,3 @@ test('a gate rejection sends the human note to the planner', async () => {
 ```
 
 A document must be written after its dispatch opens, because `result` refuses an older file. To test a loop through the CLI, as a harness drives it, see `default.spec.mts` in the default loop. To test what a loop file compiles to, assert on the `LoopConfig` that `loadLoop` returns: each step's `outcomes` hold the targets `machine` resolves to, a `*` key included.
-
-## Run the engine's tests
-
-To change Iterward itself, clone the repository, run `npm install` in its root, and run the engine's tests from the `packages/iterward` folder:
-
-```bash
-npm test
-```
-
-The test in `mcp/spec/conformance.spec.ts` drives the MCP server with the official client of `@modelcontextprotocol/sdk`, which checks every reply against the protocol's schemas. The SDK is a development dependency only, so the package still installs no dependencies.
-
-One test in `engine.spec.ts` keeps the package domain independent. It scans every file of the package, the specs and their fixtures included, for terms from the workflow Iterward came from, and fails on a match. Put a loop for a specific domain in its own directory, outside this repository.

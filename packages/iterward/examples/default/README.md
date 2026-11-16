@@ -11,17 +11,4 @@ The folder holds these files:
 - `default.spec.mts`: the loop end to end, through the CLI. `iterward init` doesn't copy it, because it runs the CLI of the Iterward package.
 - `agents/`: agent templates for the orchestrator, the planner, the builder, and the verifier. For each file and its placeholders, see [Default agents](agents/README.md).
 
-To run the loop by hand, see [Run the default loop by hand](../../docs/tutorial.md).
-
-## Make a loop of your own
-
-To start a loop of your own from this folder, follow these steps:
-
-1. Copy the folder to a directory of your repository, such as `loops/review/`, with `npx iterward init --to loops/review`.
-2. In the copy, rename `default.loop.json`, and change `name`, `inputs`, `artifacts`, `steps`, `gates`, `stops`, `machine`, and `human`. For every field, see [Configuration](../../docs/configuration.md).
-3. In `hooks.mts`, change the hooks your loop needs, and add a hook for each guard, `onEnter`, or preflight the loop file names. The hooks import nothing from Iterward, so the copy works wherever it lives.
-4. Run `npx iterward compile --config loops/review/review.loop.json`, and check each outcome's target it prints.
-5. Change the agents in `agents/` to match your steps and their statuses.
-6. Test the loop with `node:test`, as [Testing](../../docs/testing.md) describes.
-
-A run holds the sha256 of its loop file and hook modules, so start a new run after you edit either.
+To run the loop by hand, see [Run the default loop by hand](../../docs/tutorial.md). To start a loop of your own from this folder, see [Create a loop of your own](../../docs/create-a-loop.md).
