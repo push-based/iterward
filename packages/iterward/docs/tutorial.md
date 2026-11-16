@@ -17,7 +17,7 @@ stateDiagram-v2
     done --> [*]
 ```
 
-The run also stops in places the diagram leaves out. At `plan`, the run waits for you when the planner writes a question file, such as `Q-1.md`, and it continues after you answer. Any step can move to `blocked`, when an agent returns `blocked` or a step opens more than 3 times since your last move, such as a fourth build after 3 failed verifications. Every stop lists your moves from there, such as a `transition` back to `plan`.
+The run also stops in places the diagram leaves out: on a question file, such as `Q-1.md`, and at `blocked`. For each kind of stop, see [Stops](cli.md#stops).
 
 To see each step's outcomes and their targets, run `npx iterward compile --config loops/default/default.loop.json`.
 
@@ -113,4 +113,4 @@ Run these steps from the root of your repository, after you copy the default loo
 
     The run stops at `done`, with no moves left. Run `npx iterward show --run runs/example/run.json` for the run's state.
 
-To start over, delete `runs/example/`. For the files the run wrote, see [Run format](run-format.md). To drive the same loop with agents, see [The default loop](../examples/default/README.md).
+To start over, delete `runs/example/`. For the files the run wrote, see [Run format](run-format.md). To drive the same loop with agents, see [The default loop](../examples/default/README.md). To start a loop of your own, see [Create a loop of your own](create-a-loop.md).

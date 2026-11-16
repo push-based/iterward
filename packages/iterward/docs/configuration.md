@@ -1,6 +1,6 @@
 # Configuration
 
-A loop is one JSON file, and its hooks are named exports of ES modules beside it. `loadLoop` in `load-config.ts` reads the file, imports each hook, and compiles it to the `LoopConfig` the engine runs. To start a loop of your own, copy `examples/default/`, and pass your loop file to `new --config`. A run refuses every command after its loop file, a hook module, or a local file a hook module imports changes, so start a new run after you edit a loop. A local import is a static `import` or `export … from` whose path starts with `./` or `../`.
+A loop is one JSON file, and its hooks are named exports of ES modules beside it. `loadLoop` in `load-config.ts` reads the file, imports each hook, and compiles it to the `LoopConfig` the engine runs. To start a loop of your own, see [Create a loop of your own](create-a-loop.md). A run refuses every command after its loop file, a hook module, or a local file a hook module imports changes, so start a new run after you edit a loop. A local import is a static `import` or `export … from` whose path starts with `./` or `../`.
 
 ## The loop file
 
@@ -23,7 +23,7 @@ An artifact is `{ "file": NAME, "guard"?: HOOK }`. `file` is a plain file name i
 
 The guard belongs to the document. It runs on the result of the step that writes the document, on entering the gate that freezes it, on that gate's approval, and on the `validate` command. It returns `{ "status": STATUS }` or `{ "errors": [LINE, …] }`. On a step's result, the status is the step's outcome; at a gate and on `validate`, only the errors count. How an agent records its status in the document is the loop's concern: the guard reads it.
 
-An artifact that no step writes is one that code writes, such as a file a guard writes. A gate can freeze it, so the approval freezes what the human saw. No step rewrites such an artifact, so to let a human release its freeze after the file changes, declare a human move into its gate.
+An artifact that no step writes is one that code writes, such as a file a guard writes. A gate can freeze it, so the approval freezes what the human saw. No step rewrites such an artifact, so a human move into its gate is what releases its freeze after the file changes.
 
 ## Steps
 

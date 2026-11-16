@@ -37,7 +37,7 @@ The MCP server exposes the CLI's commands as tools. To register it with Claude C
 }
 ```
 
-To keep a run on the version that started it, see [Register the server](packages/iterward/docs/mcp.md#register-the-server). The server's `build-loop` tool gives an agent the build-loop skill, which interviews you about a workflow and writes a loop file that compiles.
+To keep a run on the version that started it, see [Pin the engine version](packages/iterward/docs/mcp-setup.md#pin-the-engine-version). The server's `build-loop` tool gives an agent the build-loop skill, which interviews you about a workflow and writes a loop file that compiles.
 
 ## Documentation
 
@@ -45,11 +45,13 @@ The following pages cover the rest:
 
 - [Iterward](packages/iterward/README.md): the problem, how Iterward works, a loop in code, and what the engine enforces.
 - [Run the default loop by hand](packages/iterward/docs/tutorial.md): play every agent and take a run to `done`.
+- [Create a loop of your own](packages/iterward/docs/create-a-loop.md): change a copy of the default loop, or design a loop with an agent.
+- [Set up the MCP server](packages/iterward/docs/mcp-setup.md): register the server, and pin the engine version.
 - [Configuration](packages/iterward/docs/configuration.md): the loop file, its hooks, and the standard message.
 - [CLI reference](packages/iterward/docs/cli.md): the commands, their flags, and the exit codes.
-- [MCP server](packages/iterward/docs/mcp.md): drive a run and design a loop through MCP tool calls.
+- [MCP server](packages/iterward/docs/mcp.md): the tools, their arguments, and their results.
 - [Protocol rules](packages/iterward/docs/protocol.md): the promise, the terms, and the rules.
-- [Testing](packages/iterward/docs/testing.md): test a loop with `node:test`.
+- [Test a loop](packages/iterward/docs/testing.md): test a loop with `node:test`.
 
 ## Develop
 
@@ -59,6 +61,11 @@ The repository is an Nx workspace with one package, `packages/iterward`. To buil
 npm install
 npx nx run-many -t build test
 ```
+
+To run only the engine's tests, run `npm test` in the `packages/iterward` folder. Two of those tests guard the package itself:
+
+- The test in `mcp/spec/conformance.spec.ts` drives the MCP server with the official client of `@modelcontextprotocol/sdk`, which checks every reply against the protocol's schemas. The SDK is a development dependency only, so the package still installs no dependencies.
+- One test in `engine.spec.ts` keeps the package domain independent. It scans every file of the package, the specs and their fixtures included, for terms from the workflow Iterward came from, and fails on a match. Put a loop for a specific domain in its own directory, outside this repository.
 
 Every commit follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/). A `commit-msg` hook, which `npm install` sets up, checks each message.
 

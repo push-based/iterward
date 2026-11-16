@@ -39,7 +39,7 @@ npx iterward next --run runs/example/run.json
 {"do":"dispatch","id":1,"agent":"planner","message":"Step: plan\nRun: runs/example/run.json\nDocument: runs/example/plan.md\nInputs:\n  subject: the settings page\nNote: none\nFixes: none"}
 ```
 
-To play each agent by hand through the gate, the build, and the verification, continue with [Run the default loop by hand](docs/tutorial.md). To start a loop of your own, change the copy, as [The default loop](examples/default/README.md) describes.
+To play each agent by hand through the gate, the build, and the verification, continue with [Run the default loop by hand](docs/tutorial.md). To start a loop of your own, see [Create a loop of your own](docs/create-a-loop.md).
 
 ## The problem
 
@@ -143,13 +143,16 @@ The build-loop skill turns a workflow you describe into a loop file and its hook
 
 ## Documentation
 
-The following pages cover the rest:
+The following pages cover the rest, as a tutorial, how-to guides, and reference:
 
 - [Run the default loop by hand](docs/tutorial.md): play every agent and take a run to `done`.
-- [Protocol rules](docs/protocol.md): the promise, the terms, and the rules.
+- [Create a loop of your own](docs/create-a-loop.md): change a copy of the default loop, or design a loop with an agent.
+- [Test a loop](docs/testing.md): test a loop with `node:test`.
+- [Set up the MCP server](docs/mcp-setup.md): register the server, pin the engine version, and keep the human moves behind an approval.
+- [Launch an agent in the background](docs/background-agents.md): let a background agent read its own dispatch.
 - [Configuration](docs/configuration.md): the loop file, artifacts, steps, gates, stops, the machine, human moves, limits, the standard message, and hooks.
 - [CLI reference](docs/cli.md): the commands, their flags, and the exit codes.
-- [MCP server](docs/mcp.md): drive a run through MCP tool calls.
-- [The default loop](examples/default/README.md): the example loop, its hooks, and its agent templates.
-- [Testing](docs/testing.md): test a loop with `node:test`, and run the engine's tests.
+- [MCP server](docs/mcp.md): the tools, their arguments, and their results.
+- [Protocol rules](docs/protocol.md): the promise, the terms, and the rules.
 - [Run format](docs/run-format.md): the files a run writes.
+- [The default loop](examples/default/README.md): the example loop, its hooks, and its agent templates.
